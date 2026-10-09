@@ -1,0 +1,310 @@
+
+/* ========================================
+   CAMPOS VISITAS - DASHBOARD
+======================================== */
+
+.inicio-pagina {
+  padding: 28px;
+  min-height: 100%;
+  background: #f4f7fb;
+  color: #172b4d;
+}
+
+/* CABEÇALHO */
+
+.inicio-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.inicio-topo h1 {
+  margin: 0 0 6px;
+  font-size: 28px;
+  color: #102d60;
+}
+
+.inicio-topo p {
+  margin: 0;
+  color: #68788f;
+  font-size: 14px;
+}
+
+.inicio-data {
+  background: white;
+  border: 1px solid #e0e7f0;
+  border-radius: 10px;
+  padding: 12px 16px;
+  color: #52647d;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* INDICADORES */
+
+.inicio-indicadores {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
+.inicio-indicador {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 142px;
+  padding: 20px;
+  border-radius: 16px;
+}
+
+.inicio-indicador span {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.inicio-indicador strong {
+  font-size: 38px;
+  line-height: 1;
+}
+
+.inicio-indicador small {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.inicio-indicador.azul {
+  background: #e5efff;
+  color: #0758bd;
+}
+
+.inicio-indicador.verde {
+  background: #e2f6e9;
+  color: #167448;
+}
+
+.inicio-indicador.amarelo {
+  background: #fff2dc;
+  color: #a4650d;
+}
+
+/* CARDS */
+
+.inicio-card {
+  background: white;
+  border-radius: 16px;
+  padding: 22px;
+  margin-bottom: 20px;
+  box-shadow: 0 3px 16px rgba(18, 46, 82, 0.06);
+}
+
+.inicio-card h2 {
+  margin: 0 0 20px;
+  color: #102d60;
+  font-size: 18px;
+}
+
+.inicio-vazio {
+  padding: 20px 0;
+  color: #8996a8;
+  font-size: 14px;
+  text-align: center;
+}
+
+/* PRÓXIMA VISITA */
+
+.inicio-proxima {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 16px;
+  border: 1px solid #e5ebf4;
+  border-radius: 12px;
+}
+
+.inicio-horario {
+  background: #e8f1ff;
+  color: #0758bd;
+  border-radius: 10px;
+  padding: 16px;
+  font-size: 22px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.inicio-proxima strong {
+  color: #102d60;
+  font-size: 16px;
+}
+
+.inicio-proxima p {
+  margin: 6px 0;
+  color: #52647d;
+  font-size: 13px;
+}
+
+.inicio-proxima small {
+  color: #8996a8;
+  font-size: 12px;
+}
+
+/* LISTA DE VISITAS */
+
+.inicio-lista {
+  display: flex;
+  flex-direction: column;
+}
+
+.inicio-visita {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid #e9edf4;
+}
+
+.inicio-visita:last-child {
+  border-bottom: none;
+}
+
+.inicio-visita > strong {
+  color: #0758bd;
+  font-size: 15px;
+  min-width: 52px;
+}
+
+.inicio-visita > div {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.inicio-visita > div span {
+  color: #102d60;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.inicio-visita > div small {
+  color: #8996a8;
+  font-size: 12px;
+}
+
+/* STATUS */
+
+.inicio-status {
+  border-radius: 20px;
+  padding: 7px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.inicio-status.agendada {
+  background: #e5efff;
+  color: #0758bd;
+}
+
+.inicio-status.realizada {
+  background: #e2f6e9;
+  color: #167448;
+}
+
+.inicio-status.reagendada {
+  background: #fff2dc;
+  color: #a4650d;
+}
+
+.inicio-status.cancelada {
+  background: #ffe8e8;
+  color: #b42318;
+}
+
+/* TABLETS */
+
+@media (max-width: 1000px) {
+  .inicio-pagina {
+    padding: 20px;
+  }
+
+  .inicio-indicadores {
+    gap: 12px;
+  }
+
+  .inicio-indicador {
+    padding: 16px;
+  }
+}
+
+/* CELULARES */
+
+@media (max-width: 650px) {
+  .inicio-pagina {
+    padding: 16px;
+  }
+
+  .inicio-topo {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .inicio-topo h1 {
+    font-size: 24px;
+  }
+
+  .inicio-indicadores {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .inicio-indicador {
+    min-height: 115px;
+    padding: 12px 8px;
+    gap: 10px;
+  }
+
+  .inicio-indicador span {
+    font-size: 11px;
+  }
+
+  .inicio-indicador strong {
+    font-size: 30px;
+  }
+
+  .inicio-indicador small {
+    font-size: 10px;
+  }
+
+  .inicio-card {
+    padding: 16px;
+  }
+
+  .inicio-card h2 {
+    font-size: 16px;
+  }
+
+  .inicio-horario {
+    font-size: 17px;
+    padding: 12px;
+  }
+
+  .inicio-proxima {
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .inicio-visita {
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .inicio-status {
+    font-size: 10px;
+    padding: 5px 8px;
+  }
+}

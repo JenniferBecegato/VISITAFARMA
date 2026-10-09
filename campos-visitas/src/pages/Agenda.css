@@ -1,0 +1,343 @@
+
+/* =========================================
+   CAMPOS VISITAS - AGENDA
+========================================= */
+
+.agenda-pagina {
+  min-height: 100%;
+  padding: 28px;
+  background: #f4f7fb;
+  color: #172b4d;
+}
+
+/* CABEÇALHO */
+
+.agenda-topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.agenda-topo h1 {
+  font-size: 28px;
+  margin: 0 0 8px;
+  color: #102d60;
+}
+
+.agenda-topo p {
+  margin: 0;
+  color: #68788f;
+  font-size: 14px;
+}
+
+/* FORMULÁRIO */
+
+.agenda-pagina .medicos-card {
+  margin-bottom: 20px;
+}
+
+.agenda-pagina .medicos-card select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #d9e1ed;
+  border-radius: 9px;
+  background: white;
+  color: #172b4d;
+  font-size: 14px;
+  outline: none;
+}
+
+.agenda-pagina .medicos-card select:focus {
+  border-color: #0758bd;
+  box-shadow: 0 0 0 3px rgba(7, 88, 189, 0.10);
+}
+
+.agenda-observacoes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* LISTA DE VISITAS */
+
+.agenda-lista {
+  display: flex;
+  flex-direction: column;
+}
+
+.agenda-item {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 18px 0;
+  border-bottom: 1px solid #e9edf4;
+}
+
+.agenda-item:last-child {
+  border-bottom: none;
+}
+
+.agenda-item-horario {
+  color: #0758bd;
+  font-size: 16px;
+  font-weight: 700;
+  min-width: 55px;
+}
+
+.agenda-item-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  gap: 7px;
+}
+
+.agenda-item-info strong {
+  font-size: 15px;
+  color: #102d60;
+}
+
+.agenda-item-info small {
+  color: #8996a8;
+  font-size: 12px;
+}
+
+.agenda-item-info .inicio-status {
+  align-self: flex-start;
+}
+
+/* BOTÕES */
+
+.agenda-item-acoes {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.agenda-item-acoes button {
+  border: 1px solid #d9e1ed;
+  background: white;
+  color: #0758bd;
+  padding: 10px 14px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.agenda-item-acoes button:hover {
+  background: #f0f5fc;
+}
+
+.agenda-item-acoes .agenda-botao-realizar {
+  background: #e2f6e9;
+  border-color: #c4ead2;
+  color: #167448;
+}
+
+.agenda-item-acoes .agenda-botao-realizar:hover {
+  background: #c9ecd6;
+}
+
+.agenda-item-acoes .agenda-botao-cancelar {
+  background: #fff0f0;
+  border-color: #ffd7d7;
+  color: #b42318;
+}
+
+.agenda-item-acoes .agenda-botao-cancelar:hover {
+  background: #ffe1e1;
+}
+
+/* TABLETS */
+
+@media (max-width: 1000px) {
+  .agenda-pagina {
+    padding: 20px;
+  }
+
+  .agenda-item {
+    flex-wrap: wrap;
+  }
+
+  .agenda-item-acoes {
+    width: 100%;
+    justify-content: flex-start;
+    padding-left: 73px;
+  }
+}
+
+/* CELULARES */
+
+@media (max-width: 650px) {
+  .agenda-pagina {
+    padding: 16px;
+  }
+
+  .agenda-topo {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .agenda-topo h1 {
+    font-size: 24px;
+  }
+
+  .agenda-topo > button {
+    width: 100%;
+  }
+
+  .agenda-item {
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .agenda-item-horario {
+    min-width: 45px;
+    font-size: 14px;
+    padding-top: 2px;
+  }
+
+  .agenda-item-info strong {
+    font-size: 14px;
+  }
+
+  .agenda-item-acoes {
+    padding-left: 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .agenda-item-acoes button {
+    padding: 10px 5px;
+    font-size: 12px;
+  }
+}
+
+
+/* HISTÓRICO DE REAGENDAMENTOS */
+
+.agenda-historico {
+  width: 100%;
+  flex-basis: 100%;
+  margin-top: 12px;
+  padding: 16px;
+  background: #f4f7fb;
+  border: 1px solid #dce6f2;
+  border-radius: 12px;
+}
+
+.agenda-historico h3 {
+  margin: 0 0 14px;
+  color: #102d60;
+  font-size: 15px;
+}
+
+.agenda-historico-registro {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 12px 0;
+  border-bottom: 1px solid #dce6f2;
+  font-size: 13px;
+  color: #34445b;
+}
+
+.agenda-historico-registro:last-child {
+  border-bottom: none;
+}
+
+.agenda-historico-registro small {
+  color: #718198;
+}
+
+.agenda-historico-vazio {
+  font-size: 13px;
+  color: #718198;
+}
+
+.agenda-item-acoes .agenda-botao-historico {
+  background: #e8f1ff;
+  color: #0758bd;
+  border-color: #d1e2ff;
+}
+
+
+/* =========================================
+   CORREÇÃO DO LAYOUT DO HISTÓRICO
+========================================= */
+
+.agenda-item {
+  display: grid;
+  grid-template-columns: 65px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 18px;
+  row-gap: 14px;
+}
+
+.agenda-item-info {
+  min-width: 0;
+}
+
+.agenda-item-acoes {
+  width: auto;
+  padding-left: 0;
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.agenda-historico {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
+  margin-top: 0;
+  box-sizing: border-box;
+}
+
+/* TABLETS E CELULARES */
+
+@media (max-width: 900px) {
+  .agenda-item {
+    grid-template-columns: 55px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .agenda-item-acoes {
+    grid-column: 1 / -1;
+    width: 100%;
+    justify-content: flex-start;
+    padding-left: 0;
+  }
+
+  .agenda-historico {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 650px) {
+  .agenda-item {
+    grid-template-columns: 48px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .agenda-item-acoes {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .agenda-item-acoes button {
+    flex: 1 1 auto;
+    min-width: 90px;
+  }
+
+  .agenda-historico {
+    padding: 14px;
+  }
+}

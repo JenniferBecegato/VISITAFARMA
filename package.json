@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "dexie": "^4.4.6",
+    "dexie-react-hooks": "^4.4.0"
+  }
+}

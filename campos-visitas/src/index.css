@@ -1,0 +1,53 @@
+
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  font-family: Arial, Helvetica, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: #f4f7fb;
+}
+
+button,
+input,
+textarea {
+  font-family: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+
+.pagina-temporaria {
+  padding: 30px;
+}
+
+.pagina-temporaria h1 {
+  font-size: 28px;
+  color: #102d60;
+  margin-bottom: 12px;
+}
+
+.pagina-temporaria p {
+  color: #68788f;
+  line-height: 1.6;
+}
+
+@media (max-width: 650px) {
+  .pagina-temporaria {
+    padding: 20px;
+  }
+
+  .pagina-temporaria h1 {
+    font-size: 24px;
+  }
+}

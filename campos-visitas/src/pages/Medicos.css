@@ -1,0 +1,236 @@
+
+.medicos-pagina {
+  min-height: 100vh;
+  padding: 24px;
+  background: #f4f7fb;
+  color: #172b4d;
+  font-family: Arial, sans-serif;
+}
+
+.medicos-cabecalho {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.medicos-cabecalho h1 {
+  font-size: 28px;
+  margin: 0 0 6px;
+  color: #102d60;
+}
+
+.medicos-cabecalho p {
+  margin: 0;
+  color: #68788f;
+}
+
+.medicos-botao-principal {
+  border: none;
+  border-radius: 10px;
+  background: #0758bd;
+  color: white;
+  padding: 13px 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.medicos-botao-principal:hover {
+  background: #034897;
+}
+
+.medicos-card {
+  background: white;
+  border-radius: 16px;
+  padding: 22px;
+  margin-bottom: 20px;
+  box-shadow: 0 3px 16px rgba(18, 46, 82, 0.06);
+}
+
+.medicos-card h2 {
+  font-size: 18px;
+  margin: 0 0 20px;
+  color: #102d60;
+}
+
+.medicos-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.medicos-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #34445b;
+}
+
+.medicos-card input, .medicos-card select,
+.medicos-card textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px;
+  border: 1px solid #d9e1ed;
+  border-radius: 9px;
+  background: #fff;
+  color: #172b4d;
+  font: inherit;
+  font-weight: 400;
+  outline: none;
+}
+
+.medicos-card input:focus,
+.medicos-card textarea:focus {
+  border-color: #0758bd;
+  box-shadow: 0 0 0 3px rgba(7, 88, 189, 0.10);
+}
+
+.medicos-acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.medicos-acoes button:not(.medicos-botao-principal),
+.medicos-item button {
+  background: white;
+  border: 1px solid #d9e1ed;
+  border-radius: 9px;
+  padding: 11px 16px;
+  color: #0758bd;
+  cursor: pointer;
+}
+
+.medicos-erro {
+  color: #bf2525;
+  font-size: 13px;
+  margin-top: 14px;
+}
+
+.medicos-lista-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.medicos-lista-topo h2 {
+  margin: 0;
+}
+
+.medicos-lista-topo input {
+  max-width: 340px;
+}
+
+.medicos-lista {
+  display: flex;
+  flex-direction: column;
+}
+
+.medicos-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 0;
+  border-bottom: 1px solid #e9edf4;
+}
+
+.medicos-item:last-child {
+  border-bottom: none;
+}
+
+.medicos-avatar {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e8f1ff;
+  border-radius: 50%;
+  font-size: 24px;
+}
+
+.medicos-info {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.medicos-info strong {
+  color: #102d60;
+  font-size: 15px;
+}
+
+.medicos-info span {
+  color: #60748d;
+  font-size: 13px;
+}
+
+.medicos-info small {
+  color: #8996a8;
+  font-size: 12px;
+}
+
+.medicos-vazio {
+  text-align: center;
+  color: #8996a8;
+  padding: 28px 0;
+}
+
+@media (max-width: 650px) {
+  .medicos-pagina {
+    padding: 16px;
+  }
+
+  .medicos-cabecalho {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .medicos-cabecalho h1 {
+    font-size: 24px;
+  }
+
+  .medicos-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .medicos-card {
+    padding: 16px;
+  }
+
+  .medicos-lista-topo {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .medicos-lista-topo input {
+    max-width: none;
+  }
+
+  .medicos-item {
+    gap: 10px;
+  }
+
+  .medicos-item button {
+    padding: 9px 12px;
+  }
+
+  .medicos-acoes {
+    flex-direction: column-reverse;
+  }
+
+  .medicos-acoes button {
+    width: 100%;
+  }
+}
