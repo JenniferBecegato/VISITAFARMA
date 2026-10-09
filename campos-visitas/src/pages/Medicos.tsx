@@ -24,7 +24,12 @@ const formularioInicial = {
   observacoes: ''
 };
 
-export default function Medicos() {
+interface MedicosProps {
+  abrirPasta: (medicoId: string) => void;
+}
+
+export default function Medicos({ abrirPasta }: MedicosProps) {
+
   const [formulario, setFormulario] = useState(formularioInicial);
   const [busca, setBusca] = useState('');
   const [editandoId, setEditandoId] = useState<string | null>(null);
@@ -310,9 +315,24 @@ export default function Medicos() {
                   <small>{medico.clinica || 'Clínica não informada'}</small>
                 </div>
 
-                <button onClick={() => editarMedico(medico)}>
-                  Editar
-                </button>
+                
+<div className="medicos-botoes">
+  <button
+    type="button"
+    className="medicos-botao-pasta"
+    onClick={() => abrirPasta(medico.id)}
+  >
+    📁 Abrir pasta
+  </button>
+
+  <button
+    type="button"
+    onClick={() => editarMedico(medico)}
+  >
+    Editar
+  </button>
+</div>
+
               </article>
             ))
           )}

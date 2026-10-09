@@ -234,3 +234,62 @@
     width: 100%;
   }
 }
+
+
+/* BOTÕES DO CADASTRO DE MÉDICOS */
+
+.medicos-botoes {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.medicos-item .medicos-botao-pasta {
+  background: #e8f1ff;
+  color: #0758bd;
+  border-color: #d1e2ff;
+}
+
+.medicos-item .medicos-botao-pasta:hover {
+  background: #d6e7ff;
+}
+
+@media (max-width: 650px) {
+  .medicos-item {
+    flex-wrap: wrap;
+  }
+
+  .medicos-botoes {
+    width: 100%;
+    padding-left: 54px;
+  }
+
+  .medicos-botoes button {
+    flex: 1;
+  }
+}
+
+/* PASTA DO MÉDICO - BOTÕES DE RELATÓRIO */
+
+.pasta-botao-relatorio {
+  border: 1px solid #d1e2ff;
+  background: #e8f1ff;
+  color: #0758bd;
+  padding: 11px 15px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pasta-botao-relatorio:hover {
+  background: #d6e7ff;
+}
+
+@media (max-width: 650px) {
+  .inicio-visita .pasta-botao-relatorio {
+    width: 100%;
+  }
+}

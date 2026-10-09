@@ -1,0 +1,217 @@
+
+/* =========================================
+   CAMPOS VISITAS
+   FORMULÁRIO DE VISITA MÉDICA
+========================================= */
+
+/* ÁREA PRINCIPAL */
+
+.app-conteudo .pagina-temporaria:has(progress) {
+  max-width: 950px;
+  margin: 0 auto;
+  padding: 28px;
+}
+
+.pagina-temporaria:has(progress) > h1 {
+  color: #102d60;
+  font-size: 27px;
+  margin: 0 0 12px;
+}
+
+.pagina-temporaria:has(progress) > p {
+  color: #68788f;
+  font-size: 14px;
+  margin-bottom: 18px;
+}
+
+/* BARRA DE PROGRESSO */
+
+.pagina-temporaria progress {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  height: 9px;
+  border: none;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #e4eaf2;
+}
+
+.pagina-temporaria progress::-webkit-progress-bar {
+  background: #e4eaf2;
+  border-radius: 20px;
+}
+
+.pagina-temporaria progress::-webkit-progress-value {
+  background: #b49a60;
+  border-radius: 20px;
+  transition: width 0.25s ease;
+}
+
+.pagina-temporaria progress::-moz-progress-bar {
+  background: #b49a60;
+  border-radius: 20px;
+}
+
+/* CARTÕES DO FORMULÁRIO */
+
+.pagina-temporaria:has(progress) .medicos-card {
+  background: #ffffff;
+  border: 1px solid #e5ebf4;
+  border-top: 5px solid #b49a60;
+  border-radius: 14px;
+  padding: 28px;
+  margin: 22px 0;
+  box-shadow: 0 3px 16px rgba(18, 46, 82, 0.06);
+}
+
+.pagina-temporaria:has(progress) .medicos-card h2 {
+  font-size: 19px;
+  color: #102d60;
+  margin: 0 0 25px;
+}
+
+/* CAMPOS */
+
+.pagina-temporaria:has(progress) .medicos-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-bottom: 22px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #34445b;
+}
+
+.pagina-temporaria:has(progress) .medicos-card input,
+.pagina-temporaria:has(progress) .medicos-card select,
+.pagina-temporaria:has(progress) .medicos-card textarea {
+  width: 100%;
+  min-height: 46px;
+  padding: 13px 14px;
+  border: 1px solid #d8e1ed;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #172b4d;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.pagina-temporaria:has(progress) .medicos-card textarea {
+  min-height: 100px;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.pagina-temporaria:has(progress) .medicos-card input:focus,
+.pagina-temporaria:has(progress) .medicos-card select:focus,
+.pagina-temporaria:has(progress) .medicos-card textarea:focus {
+  border-color: #0758bd;
+  box-shadow: 0 0 0 3px rgba(7, 88, 189, 0.10);
+}
+
+/* BOTÕES DE NAVEGAÇÃO */
+
+.pagina-temporaria:has(progress) .medicos-acoes {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 24px;
+  flex-wrap: wrap;
+}
+
+.pagina-temporaria:has(progress) .medicos-acoes button {
+  min-height: 45px;
+  border-radius: 9px;
+  padding: 12px 18px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pagina-temporaria:has(progress)
+.medicos-acoes button:not(.medicos-botao-principal) {
+  background: #ffffff;
+  border: 1px solid #d8e1ed;
+  color: #0758bd;
+}
+
+.pagina-temporaria:has(progress)
+.medicos-acoes .medicos-botao-principal {
+  background: #0758bd;
+  border: none;
+  color: white;
+}
+
+.pagina-temporaria:has(progress)
+.medicos-acoes button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* MENSAGEM DE SALVAMENTO */
+
+.pagina-temporaria:has(progress) [role="status"] {
+  padding: 14px 16px;
+  background: #e2f6e9;
+  border: 1px solid #c4ead2;
+  border-radius: 10px;
+  color: #167448;
+  font-size: 13px;
+}
+
+/* TABLETS */
+
+@media (max-width: 900px) {
+  .app-conteudo .pagina-temporaria:has(progress) {
+    padding: 20px;
+  }
+
+  .pagina-temporaria:has(progress) .medicos-card {
+    padding: 22px;
+  }
+}
+
+/* CELULARES */
+
+@media (max-width: 650px) {
+  .app-conteudo .pagina-temporaria:has(progress) {
+    padding: 16px;
+  }
+
+  .pagina-temporaria:has(progress) > h1 {
+    font-size: 23px;
+  }
+
+  .pagina-temporaria:has(progress) .medicos-card {
+    padding: 18px 15px;
+    margin: 18px 0;
+  }
+
+  .pagina-temporaria:has(progress) .medicos-card h2 {
+    font-size: 17px;
+  }
+
+  .pagina-temporaria:has(progress) .medicos-card label {
+    font-size: 13px;
+  }
+
+  .pagina-temporaria:has(progress) .medicos-acoes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 9px;
+  }
+
+  .pagina-temporaria:has(progress) .medicos-acoes button {
+    width: 100%;
+    padding: 12px 8px;
+  }
+
+  .pagina-temporaria:has(progress)
+  .medicos-acoes .medicos-botao-principal {
+    grid-column: 1 / -1;
+  }
+}
