@@ -341,3 +341,7 @@
     padding: 14px;
   }
 }
+
+.agenda-nome-medico { background:none; border:0; padding:0; text-align:left; font:inherit; font-weight:600; color:#182f60; cursor:pointer; }
+.agenda-nome-medico:hover { text-decoration:underline; }
+.agenda-item-acoes button:disabled { opacity:.45; cursor:not-allowed; }

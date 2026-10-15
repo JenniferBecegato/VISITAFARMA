@@ -38,6 +38,8 @@ export interface Medico {
   endereco?: string;
   telefone?: string;
   email?: string;
+  secretariaId?: string;
+  secretariaIds?: string[];
   observacoes?: string;
 
   perfil?: PerfilMedico;
@@ -58,6 +60,8 @@ export interface Secretaria {
   usuarioId: string;
 
   medicoId: string;
+  medicoIds?: string[];
+  localTrabalho?: string;
   nome: string;
   telefone?: string;
   observacoes?: string;
@@ -79,6 +83,8 @@ export interface Produto {
 
   nome: string;
   descricao?: string;
+  categoria?: string;
+  observacoes?: string;
   ativo: boolean;
 
   criadoEm: string;
@@ -168,6 +174,7 @@ export interface FormularioVisita {
   // Página 3
   temaTrabalhado: string;
   produtosAbordados: string;
+  produtosSelecionados?: { produtoId: string; nome: string; quantidadeAmostras: number }[];
   amostrasDeixadas: string;
   materiaisPromocionais?: string;
 

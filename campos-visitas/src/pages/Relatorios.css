@@ -1,0 +1,12 @@
+.relatorios-indicadores { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+.relatorios-indicadores strong { font-size: 32px; color: #182f60; }
+.relatorios-tabela { overflow-x: auto; }
+.relatorios-tabela table { width: 100%; border-collapse: collapse; text-align: left; }
+.relatorios-tabela th, .relatorios-tabela td { padding: 12px; border-bottom: 1px solid #e0e7ee; }
+@media print {
+  .app-cabecalho, .app-menu-lateral, .app-menu-inferior, .relatorios-filtros, .relatorios-pagina button { display: none !important; }
+  .app-conteudo, .app-layout, .relatorios-pagina { padding: 0 !important; margin: 0 !important; width: 100% !important; display: block !important; }
+  .relatorios-pagina .medicos-card { box-shadow: none; border: 1px solid #ddd; break-inside: avoid; }
+  .relatorios-tabela { overflow: visible; }
+  .relatorios-tabela thead { display: table-header-group; }
+}

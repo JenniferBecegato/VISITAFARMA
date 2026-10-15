@@ -1,0 +1,8 @@
+.cadastro-campos { border: 0; padding: 0; margin: 0; min-width: 0; }
+.cadastro-vinculos { border: 1px solid #d9e1ed; border-radius: 10px; padding: 16px; margin: 18px 0; }
+.medicos-card label.cadastro-opcao { display: flex; flex-direction: row; align-items: center; gap: 10px; margin: 12px 0; }
+.medicos-card .cadastro-opcao input { width: 22px; height: 22px; flex-shrink: 0; }
+.cadastros-pagina button { min-height: 44px; }
+.cadastros-pagina button:disabled { opacity: .6; cursor: wait; }
+.cadastros-pagina [role="status"] { color: #167448; background: #e2f6e9; padding: 14px; border-radius: 10px; }
+.cadastros-pagina .medicos-info { overflow-wrap: anywhere; white-space: pre-line; }

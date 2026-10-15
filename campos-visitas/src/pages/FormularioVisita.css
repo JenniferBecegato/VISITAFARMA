@@ -215,3 +215,21 @@
     grid-column: 1 / -1;
   }
 }
+
+.pagina-temporaria:has(progress) .salvamento-salvando {
+  background: #fff6dc;
+  border-color: #e6cc7a;
+  color: #715000;
+}
+
+.pagina-temporaria:has(progress) .salvamento-erro {
+  background: #ffe7e7;
+  border-color: #e9aaaa;
+  color: #9b2020;
+}
+
+.formulario-produto { display: flex; align-items: center; flex-wrap: wrap; gap: 16px;
+  padding: 16px; margin-bottom: 12px; border: 1px solid #d9e1ed; border-radius: 10px; }
+.formulario-produto strong { flex: 1; min-width: 130px; overflow-wrap: anywhere; }
+.formulario-produto button { min-height: 44px; padding: 10px; }
+.pagina-temporaria:has(progress) .formulario-produto label { margin: 0; }

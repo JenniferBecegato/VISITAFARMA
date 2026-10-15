@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   db,
@@ -9,6 +9,8 @@ import {
 } from '../database/database';
 
 import './Medicos.css';
+import { gravarSecretariasDoMedico, type ContatoSecretaria } from '../database/catalogos';
+import { normalizarTexto, nomesMedicosParecidos } from '../utils/texto';
 
 const USUARIO_TESTE = 'usuario-local-teste';
 
@@ -20,7 +22,6 @@ const formularioInicial = {
   clinica: '',
   endereco: '',
   telefone: '',
-  email: '',
   observacoes: ''
 };
 
@@ -31,10 +32,17 @@ interface MedicosProps {
 export default function Medicos({ abrirPasta }: MedicosProps) {
 
   const [formulario, setFormulario] = useState(formularioInicial);
+  const [maisDeUmaSecretaria, setMaisDeUmaSecretaria] = useState(false);
+  const [camposSecretarias, setCamposSecretarias] = useState<ContatoSecretaria[]>([{ nome: '' }]);
   const [busca, setBusca] = useState('');
+  const [buscaAplicada, setBuscaAplicada] = useState('');
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [erro, setErro] = useState('');
+  const [conferido, setConferido] = useState(false);
+  const [avisoNome, setAvisoNome] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const trava = useRef(false);
 
   const medicos = useLiveQuery(
     () => db.medicos
@@ -44,7 +52,11 @@ export default function Medicos({ abrirPasta }: MedicosProps) {
     []
   );
 
+  const secretarias = useLiveQuery(() => db.secretarias.where('usuarioId').equals(USUARIO_TESTE).filter(s => !s.excluidoEm).toArray(), []);
+
   const atualizarCampo = (campo: string, valor: string) => {
+    setConferido(false);
+    setAvisoNome(false);
     setFormulario(anterior => ({
       ...anterior,
       [campo]: valor
@@ -52,7 +64,11 @@ export default function Medicos({ abrirPasta }: MedicosProps) {
   };
 
   const limparFormulario = () => {
+    setConferido(false);
+    setAvisoNome(false);
     setFormulario(formularioInicial);
+    setMaisDeUmaSecretaria(false);
+    setCamposSecretarias([{ nome: '' }]);
     setEditandoId(null);
     setMostrarFormulario(false);
     setErro('');
@@ -60,86 +76,63 @@ export default function Medicos({ abrirPasta }: MedicosProps) {
 
   const salvarMedico = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (trava.current) return;
     setErro('');
-
     const nome = formulario.nome.trim();
     const especialidade = formulario.especialidade.trim();
-    const crm = formulario.crm.trim();
+    const crm = formulario.crm.replace(/[^0-9]/g, '');
     const ufCrm = formulario.ufCrm.trim().toUpperCase();
-
-    if (!nome || !especialidade) {
-      setErro('Preencha o nome e a especialidade.');
-      return;
+    if (!nome || !especialidade) { setErro('Preencha o nome e a especialidade.'); return; }
+    if (formulario.crm.trim() && (!crm || !/^[A-Z]{2}$/.test(ufCrm))) {
+      setErro('Informe um CRM numérico e a UF com duas letras.'); return;
     }
-
-    const normalizar = (valor: string) =>
-      valor.trim().toLocaleLowerCase('pt-BR')
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/\s+/g, ' ');
-
-    const duplicado = medicos?.find(medico => {
-      if (medico.id === editandoId || medico.excluidoEm) {
-        return false;
-      }
-
-      const mesmoCrm = Boolean(
-        crm &&
-        medico.crm &&
-        normalizar(medico.crm) === normalizar(crm) &&
-        normalizar(medico.ufCrm || '') === normalizar(ufCrm)
-      );
-
-      const mesmoNome = normalizar(medico.nome) === normalizar(nome);
-      const mesmaEspecialidade =
-        normalizar(medico.especialidade) === normalizar(especialidade);
-
-      return mesmoCrm || (mesmoNome && mesmaEspecialidade);
-    });
-
-    if (duplicado) {
-      setErro(`Possível cadastro duplicado: ${duplicado.nome}.`);
-      return;
+    const contatosVisiveis = maisDeUmaSecretaria ? camposSecretarias : camposSecretarias.slice(0, 1);
+    const contatosPreenchidos = contatosVisiveis.filter(c => c.nome.trim());
+    if (maisDeUmaSecretaria && (contatosVisiveis.length < 2 || contatosPreenchidos.length !== contatosVisiveis.length)) {
+      setErro('Preencha os nomes das secretárias nos campos exibidos.'); return;
     }
-
-    const agora = dataAtual();
-
+    if (new Set(contatosPreenchidos.map(c => normalizarTexto(c.nome))).size !== contatosPreenchidos.length) {
+      setErro('Informe nomes diferentes para as secretárias.'); return;
+    }
+    trava.current = true; setSalvando(true);
     try {
-      if (editandoId) {
-        await db.medicos.update(editandoId, {
-          ...formulario,
-          nome,
-          crm,
-          ufCrm,
-          especialidade,
-          atualizadoEm: agora,
-          sincronizacao: 'pendente'
-        });
-      } else {
-        const novoMedico: Medico = {
-          id: gerarId(),
-          usuarioId: USUARIO_TESTE,
-          ...formulario,
-          nome,
-          crm,
-          ufCrm,
-          especialidade,
-          criadoEm: agora,
-          atualizadoEm: agora,
-          sincronizacao: 'pendente'
-        };
-
-        await db.medicos.add(novoMedico);
-      }
-
+      await db.transaction('rw', db.medicos, db.secretarias, async () => {
+        const registros = await db.medicos.where('usuarioId').equals(USUARIO_TESTE)
+          .filter(m => !m.excluidoEm && m.id !== editandoId).toArray();
+        const mesmoCrm = registros.find(m => crm && m.crm?.replace(/[^0-9]/g, '') === crm && m.ufCrm?.toUpperCase() === ufCrm);
+        if (mesmoCrm) throw new Error(`CRM já cadastrado para ${mesmoCrm.nome}. Abra o cadastro existente.`);
+        const mesmoNome = registros.find(m => normalizarTexto(m.nome) === normalizarTexto(nome) &&
+          normalizarTexto(m.especialidade) === normalizarTexto(especialidade));
+        if (mesmoNome) throw new Error(`Médico já cadastrado: ${mesmoNome.nome}.`);
+        const semelhante = registros.find(m => nomesMedicosParecidos(m.nome, nome));
+        if (semelhante && !conferido) {
+          setAvisoNome(true);
+          throw new Error(`Nome semelhante a ${semelhante.nome}. Confira se são pessoas diferentes antes de continuar.`);
+        }
+        const anterior = editandoId ? await db.medicos.get(editandoId) : undefined;
+        if (editandoId && (!anterior || anterior.usuarioId !== USUARIO_TESTE || anterior.excluidoEm)) throw new Error('Médico não encontrado.');
+        const agora = dataAtual();
+        const medico: Medico = { ...anterior, ...formulario, nome, crm, ufCrm, especialidade,
+          id: editandoId ?? gerarId(), usuarioId: USUARIO_TESTE,
+          criadoEm: anterior?.criadoEm ?? agora, atualizadoEm: agora, sincronizacao: 'pendente' };
+        await db.medicos.put(medico);
+        await gravarSecretariasDoMedico(USUARIO_TESTE, medico.id, contatosPreenchidos);
+      });
       limparFormulario();
     } catch (error) {
       console.error(error);
-      setErro('Não foi possível salvar o médico.');
-    }
+      setErro(error instanceof Error ? error.message : 'Não foi possível salvar o médico.');
+    } finally { trava.current = false; setSalvando(false); }
   };
 
   const editarMedico = (medico: Medico) => {
+    setAvisoNome(false); setConferido(false);
+    const ordem = medico.secretariaIds ?? (medico.secretariaId ? [medico.secretariaId] : []);
+    const posicao = (id: string) => ordem.includes(id) ? ordem.indexOf(id) : Number.MAX_SAFE_INTEGER;
+    const contatos = (secretarias ?? []).filter(s => (s.medicoIds ?? [s.medicoId]).includes(medico.id))
+      .sort((a, b) => posicao(a.id) - posicao(b.id));
+    setCamposSecretarias(contatos.length ? contatos.map(s => ({ id: s.id, nome: s.nome })) : [{ nome: '' }]);
+    setMaisDeUmaSecretaria(contatos.length > 1);
     setFormulario({
       nome: medico.nome,
       crm: medico.crm || '',
@@ -148,7 +141,6 @@ export default function Medicos({ abrirPasta }: MedicosProps) {
       clinica: medico.clinica || '',
       endereco: medico.endereco || '',
       telefone: medico.telefone || '',
-      email: medico.email || '',
       observacoes: medico.observacoes || ''
     });
 
@@ -160,24 +152,29 @@ export default function Medicos({ abrirPasta }: MedicosProps) {
   const medicosFiltrados = (medicos || [])
     .filter(medico => !medico.excluidoEm)
     .filter(medico => {
-      const texto = busca.toLocaleLowerCase('pt-BR');
+      const texto = normalizarTexto(buscaAplicada);
 
       return (
-        medico.nome.toLocaleLowerCase('pt-BR').includes(texto) ||
-        medico.especialidade.toLocaleLowerCase('pt-BR').includes(texto) ||
-        (medico.clinica || '').toLocaleLowerCase('pt-BR').includes(texto)
+        normalizarTexto(medico.nome).includes(texto) ||
+        normalizarTexto(medico.especialidade).includes(texto) ||
+        normalizarTexto(medico.clinica || '').includes(texto)
       );
     })
     .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 
   return (
     <main className="medicos-pagina">
-      <header className="medicos-cabecalho">
+      <header className="medicos-cabecalho cabecalho-com-busca">
         <div>
           <h1>Médicos</h1>
           <p>Gerencie seus médicos e contatos.</p>
         </div>
 
+        <form className="busca-cabecalho" role="search" aria-label="Pesquisar médicos" onSubmit={e => { e.preventDefault(); setBuscaAplicada(busca); }}>
+          <label className="busca-texto">Buscar médico<input type="search" placeholder="Médico, especialidade ou clínica" value={busca}
+            onChange={e => { setBusca(e.target.value); if (!e.target.value) setBuscaAplicada(''); }} /></label>
+          <button className="botao-pesquisa" type="submit">Pesquisar</button>
+        </form>
         <button
           className="medicos-botao-principal"
           onClick={() => {
@@ -189,11 +186,13 @@ export default function Medicos({ abrirPasta }: MedicosProps) {
         </button>
       </header>
 
+
+
       {mostrarFormulario && (
         <section className="medicos-card">
           <h2>{editandoId ? 'Editar médico' : 'Cadastrar médico'}</h2>
 
-          <form onSubmit={salvarMedico}>
+          <form onSubmit={salvarMedico}><fieldset disabled={salvando} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
             <div className="medicos-grid">
               <label>
                 Nome completo *
@@ -251,15 +250,6 @@ export default function Medicos({ abrirPasta }: MedicosProps) {
               </label>
 
               <label>
-                E-mail
-                <input
-                  type="email"
-                  value={formulario.email}
-                  onChange={e => atualizarCampo('email', e.target.value)}
-                />
-              </label>
-
-              <label>
                 Endereço
                 <input
                   value={formulario.endereco}
@@ -267,6 +257,29 @@ export default function Medicos({ abrirPasta }: MedicosProps) {
                 />
               </label>
             </div>
+
+            <fieldset className="medico-secretarias"><legend>Secretárias do médico</legend>
+              <fieldset className="medico-opcoes-secretarias">
+                <legend>Tem mais de uma secretária?</legend>
+                <div className="medico-radios">
+                  <label><input type="radio" name="mais-de-uma-secretaria" value="sim" checked={maisDeUmaSecretaria}
+                    onChange={() => {
+                      setMaisDeUmaSecretaria(true);
+                      if (camposSecretarias.length < 2) setCamposSecretarias([...camposSecretarias, { nome: '' }]);
+                    }} />Sim</label>
+                  <label><input type="radio" name="mais-de-uma-secretaria" value="nao" checked={!maisDeUmaSecretaria}
+                    onChange={() => setMaisDeUmaSecretaria(false)} />Não</label>
+                </div>
+              </fieldset>
+              <div className="medicos-grid">{(maisDeUmaSecretaria ? camposSecretarias : camposSecretarias.slice(0, 1)).map((contato, indice) =>
+                <div key={indice} className="medico-secretaria-campo"><label>{maisDeUmaSecretaria ? `Nome da secretária ${indice + 1} *` : 'Nome da secretária'}
+                  <input required={maisDeUmaSecretaria} maxLength={160} value={contato.nome} onChange={e => setCamposSecretarias(camposSecretarias.map((c, i) =>
+                    i === indice ? { ...c, nome: e.target.value } : c))} /></label>
+                  {maisDeUmaSecretaria && indice > 1 && <button type="button" onClick={() => setCamposSecretarias(camposSecretarias.filter((_, i) => i !== indice))}>Remover campo {indice + 1}</button>}
+                </div>)}
+              </div>
+              {maisDeUmaSecretaria && <button type="button" className="medico-adicionar-secretaria" onClick={() => setCamposSecretarias([...camposSecretarias, { nome: '' }])}>+ Adicionar mais uma secretária</button>}
+            </fieldset>
 
             <label>
               Observações
@@ -277,7 +290,11 @@ export default function Medicos({ abrirPasta }: MedicosProps) {
               />
             </label>
 
-            {erro && <p className="medicos-erro">{erro}</p>}
+            {erro && <p role="alert" className="medicos-erro">{erro}</p>}
+            {avisoNome && <label style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <input style={{ width: 22, height: 22 }} type="checkbox" checked={conferido} onChange={e => setConferido(e.target.checked)} />
+              Conferi os dados e são médicos diferentes.
+            </label>}
 
             <div className="medicos-acoes">
               <button type="button" onClick={limparFormulario}>
@@ -287,18 +304,14 @@ export default function Medicos({ abrirPasta }: MedicosProps) {
                 {editandoId ? 'Salvar alterações' : 'Cadastrar médico'}
               </button>
             </div>
-          </form>
+          </fieldset></form>
         </section>
       )}
 
       <section className="medicos-card">
         <div className="medicos-lista-topo">
           <h2>Meus médicos ({medicosFiltrados.length})</h2>
-          <input
-            placeholder="Buscar médico, especialidade ou clínica..."
-            value={busca}
-            onChange={e => setBusca(e.target.value)}
-          />
+
         </div>
 
         <div className="medicos-lista">
@@ -327,6 +340,7 @@ export default function Medicos({ abrirPasta }: MedicosProps) {
 
   <button
     type="button"
+    disabled={secretarias === undefined || salvando}
     onClick={() => editarMedico(medico)}
   >
     Editar

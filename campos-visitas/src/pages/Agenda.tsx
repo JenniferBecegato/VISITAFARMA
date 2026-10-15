@@ -1,15 +1,15 @@
 
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 
 import {
   db,
-  gerarId,
-  dataAtual,
   type Visita
 } from '../database/database';
 
 import './Agenda.css';
+import CalendarioVisitas from '../components/CalendarioVisitas';
+import { salvarAgendamento } from '../database/visitas';
 
 const USUARIO_TESTE = 'usuario-local-teste';
 
@@ -29,19 +29,25 @@ function formatarData(data: string) {
 
 
 
-export default function Agenda() {
+export default function Agenda({ visitaInicial, abrirPasta }: { visitaInicial?: Visita; abrirPasta: (medicoId: string) => void }) {
+  const travaSalvar = useRef(false);
+  const [atualizadoEmEdicao, setAtualizadoEmEdicao] = useState(visitaInicial?.atualizadoEm);
+  const [diaSelecionado, setDiaSelecionado] = useState(visitaInicial?.data ?? obterDataLocal());
   const [mostrarFormulario, setMostrarFormulario] =
-    useState(false);
+    useState(Boolean(visitaInicial));
 
   const [editandoId, setEditandoId] =
-    useState<string | null>(null);
+    useState<string | null>(visitaInicial?.id ?? null);
 
-  const [medicoId, setMedicoId] = useState('');
-  const [data, setData] = useState(obterDataLocal());
-  const [horaInicio, setHoraInicio] = useState('');
-  const [horaFim, setHoraFim] = useState('');
-  const [local, setLocal] = useState('');
-  const [observacoes, setObservacoes] = useState('');
+  const [medicoId, setMedicoId] = useState(visitaInicial?.medicoId ?? '');
+  const [data, setData] = useState(visitaInicial?.data ?? obterDataLocal());
+  const [horaInicio, setHoraInicio] = useState(visitaInicial?.horaInicio ?? '');
+  const [horaFim, setHoraFim] = useState(visitaInicial?.horaFim ?? '');
+  const [local, setLocal] = useState(visitaInicial?.local ?? '');
+  const [secretariaId, setSecretariaId] = useState(visitaInicial?.secretariaId ?? '');
+  const secretarias = useLiveQuery(() => db.secretarias.where('usuarioId').equals(USUARIO_TESTE)
+    .filter(s => !s.excluidoEm && (s.medicoIds ?? [s.medicoId]).includes(medicoId)).sortBy('nome'), [medicoId]);
+  const [observacoes, setObservacoes] = useState(visitaInicial?.observacoes ?? '');
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
 
@@ -85,7 +91,7 @@ function alternarHistorico(visitaId: string) {
     .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 
   const visitasOrdenadas = (visitas ?? [])
-    .filter(v => !v.excluidoEm)
+    .filter(v => !v.excluidoEm && v.data === diaSelecionado)
     .sort((a, b) =>
       `${a.data}T${a.horaInicio}`.localeCompare(
         `${b.data}T${b.horaInicio}`
@@ -103,19 +109,23 @@ function alternarHistorico(visitaId: string) {
     setHoraInicio('');
     setHoraFim('');
     setLocal('');
+    setSecretariaId('');
     setObservacoes('');
     setEditandoId(null);
+    setAtualizadoEmEdicao(undefined);
     setErro('');
     setMostrarFormulario(false);
   }
 
   function editarVisita(visita: Visita) {
     setEditandoId(visita.id);
+    setAtualizadoEmEdicao(visita.atualizadoEm);
     setMedicoId(visita.medicoId);
     setData(visita.data);
     setHoraInicio(visita.horaInicio);
     setHoraFim(visita.horaFim || '');
     setLocal(visita.local || '');
+    setSecretariaId(visita.secretariaId || '');
     setObservacoes(visita.observacoes || '');
     setErro('');
     setMostrarFormulario(true);
@@ -125,166 +135,15 @@ function alternarHistorico(visitaId: string) {
 
   async function salvarVisita(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setErro('');
-
-    if (!medicoId || !data || !horaInicio) {
-      setErro('Preencha médico, data e horário.');
-      return;
-    }
-
-    if (horaFim && horaFim <= horaInicio) {
-      setErro('O horário final deve ser posterior ao inicial.');
-      return;
-    }
-
-    const medico = medicosAtivos.find(m => m.id === medicoId);
-
-    if (!medico) {
-      setErro('Selecione um médico válido.');
-      return;
-    }
-
-    setSalvando(true);
-
+    if (travaSalvar.current) return;
+    travaSalvar.current = true; setSalvando(true); setErro('');
     try {
-      const agora = dataAtual();
-
-      if (editandoId) {
-
-        const visitaAnterior = await db.visitas.get(editandoId);
-
-  if (
-    !visitaAnterior ||
-    visitaAnterior.usuarioId !== USUARIO_TESTE
-  ) {
-    setErro('Visita não encontrada.');
-    return;
-  }
-
-  if (visitaAnterior.status === 'cancelada') {
-    setErro('Não é possível editar uma visita cancelada.');
-    return;
-  }
-
-  const reagendada =
-    visitaAnterior.data !== data ||
-    visitaAnterior.horaInicio !== horaInicio;
-
-  await db.transaction(
-    'rw',
-    db.visitas,
-    db.historicoReagendamentos,
-    async () => {
-      if (reagendada) {
-        await db.historicoReagendamentos.add({
-          id: gerarId(),
-          usuarioId: USUARIO_TESTE,
-          visitaId: editandoId,
-
-          dataAnterior: visitaAnterior.data,
-          horaAnterior: visitaAnterior.horaInicio,
-
-          dataNova: data,
-          horaNova: horaInicio,
-
-          alteradoEm: agora,
-          sincronizacao: 'pendente'
-        });
-      }
-
-      await db.visitas.update(editandoId, {
-        medicoId,
-        data,
-        horaInicio,
-        horaFim: horaFim || undefined,
-        local: local.trim() || medico.clinica || undefined,
-        observacoes: observacoes.trim(),
-
-        status: reagendada
-          ? 'reagendada'
-          : visitaAnterior.status,
-
-        statusGoogle: 'pendente',
-        atualizadoEm: agora,
-        sincronizacao: 'pendente'
-      });
-    }
-  );
-      } else {
-        const novaVisita: Visita = {
-          id: gerarId(),
-          usuarioId: USUARIO_TESTE,
-          medicoId,
-          data,
-          horaInicio,
-          horaFim: horaFim || undefined,
-          local: local.trim() || medico.clinica || undefined,
-          observacoes: observacoes.trim(),
-          status: 'agendada',
-          statusGoogle: 'pendente',
-          criadoEm: agora,
-          atualizadoEm: agora,
-          sincronizacao: 'pendente'
-        };
-
-        await db.visitas.add(novaVisita);
-      }
-
-      limparFormulario();
+      await salvarAgendamento(USUARIO_TESTE, { medicoId, data, horaInicio, horaFim, local, secretariaId, observacoes },
+        editandoId ?? undefined, atualizadoEmEdicao);
+      setDiaSelecionado(data); limparFormulario();
     } catch (error) {
-      console.error(error);
-      setErro('Não foi possível salvar a visita.');
-    } finally {
-      setSalvando(false);
-    }
-  }
-
-  async function cancelarVisita(visita: Visita) {
-    if (
-      !window.confirm(
-        `Deseja cancelar a visita com ${nomeMedico(visita.medicoId)}?`
-      )
-    ) {
-      return;
-    }
-
-    try {
-      await db.visitas.update(visita.id, {
-        status: 'cancelada',
-        statusGoogle: 'pendente',
-        sincronizacao: 'pendente',
-        atualizadoEm: dataAtual()
-      });
-    } catch (error) {
-      console.error(error);
-      alert('Não foi possível cancelar a visita.');
-    }
-  }
-
-  async function realizarVisita(visita: Visita) {
-    if (
-      !window.confirm(
-        `Confirmar que a visita com ${nomeMedico(visita.medicoId)} foi realizada?`
-      )
-    ) {
-      return;
-    }
-
-    try {
-      await db.visitas.update(visita.id, {
-        status: 'realizada',
-        sincronizacao: 'pendente',
-        atualizadoEm: dataAtual()
-      });
-
-      alert(
-        'Visita marcada como realizada! ' +
-        'Na próxima etapa, vamos conectar o formulário.'
-      );
-    } catch (error) {
-      console.error(error);
-      alert('Não foi possível atualizar a visita.');
-    }
+      setErro(error instanceof Error ? error.message : 'Não foi possível salvar a visita.');
+    } finally { travaSalvar.current = false; setSalvando(false); }
   }
 
   return (
@@ -299,6 +158,7 @@ function alternarHistorico(visitaId: string) {
           className="medicos-botao-principal"
           onClick={() => {
             limparFormulario();
+            setData(diaSelecionado);
             setMostrarFormulario(true);
           }}
         >
@@ -312,14 +172,18 @@ function alternarHistorico(visitaId: string) {
             {editandoId ? 'Editar visita' : 'Agendar visita'}
           </h2>
 
-          <form onSubmit={salvarVisita}>
+          <form onSubmit={salvarVisita}><fieldset disabled={salvando} className="cadastro-campos">
             <div className="medicos-grid">
               <label>
                 Médico *
                 <select
                   required
                   value={medicoId}
-                  onChange={e => setMedicoId(e.target.value)}
+                  onChange={e => {
+                    setMedicoId(e.target.value);
+                    setSecretariaId(medicosAtivos.find(m => m.id === e.target.value)?.secretariaId ?? '');
+                    setLocal(medicosAtivos.find(m => m.id === e.target.value)?.clinica ?? '');
+                  }}
                 >
                   <option value="">Selecione um médico</option>
 
@@ -369,6 +233,12 @@ function alternarHistorico(visitaId: string) {
               </label>
             </div>
 
+            <label>Secretária
+              <select value={secretariaId} onChange={e => setSecretariaId(e.target.value)}>
+                <option value="">Sem secretária selecionada</option>
+                {secretarias?.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+              </select>
+            </label>
             <label className="agenda-observacoes">
               Observações
               <textarea
@@ -378,7 +248,7 @@ function alternarHistorico(visitaId: string) {
               />
             </label>
 
-            {erro && <p className="medicos-erro">{erro}</p>}
+            {erro && <p role="alert" className="medicos-erro">{erro}</p>}
 
             <div className="medicos-acoes">
               <button
@@ -400,13 +270,17 @@ function alternarHistorico(visitaId: string) {
                     : 'Salvar visita'}
               </button>
             </div>
-          </form>
+          </fieldset></form>
         </section>
       )}
 
+      <CalendarioVisitas key={diaSelecionado.slice(0, 7)} visitas={visitas ?? []} medicos={medicos ?? []} selecionado={diaSelecionado}
+        selecionar={setDiaSelecionado} agendar={dia => {
+          limparFormulario(); setData(dia); setMostrarFormulario(true); window.scrollTo({ top: 0, behavior: 'smooth' });
+        }} />
       <section className="medicos-card">
         <h2>
-          Visitas cadastradas ({visitasOrdenadas.length})
+          Visitas de {formatarData(diaSelecionado)} ({visitasOrdenadas.length})
         </h2>
 
         {visitasOrdenadas.length === 0 ? (
@@ -422,7 +296,7 @@ function alternarHistorico(visitaId: string) {
                 </div>
 
                 <div className="agenda-item-info">
-                  <strong>{nomeMedico(visita.medicoId)}</strong>
+                  <button type="button" className="agenda-nome-medico" onClick={() => abrirPasta(visita.medicoId)}>{nomeMedico(visita.medicoId)}</button>
 
                   <small>
                     {formatarData(visita.data)}
@@ -436,41 +310,11 @@ function alternarHistorico(visitaId: string) {
                 </div>
 
                 <div className="agenda-item-acoes">
-                    <button
-                     type="button"
-                     className="agenda-botao-historico"
-                     onClick={() => alternarHistorico(visita.id)}
-                    >
-                      {historicoVisitaId === visita.id
-                        ? 'Fechar histórico'
-                        : 'Histórico'}
-                    </button>
-
-                  {visita.status !== 'cancelada' && (
-                    <>
-                      <button
-                        onClick={() => editarVisita(visita)}
-                      >
-                        Editar
-                      </button>
-
-                      {visita.status !== 'realizada' && (
-                        <button
-                          className="agenda-botao-realizar"
-                          onClick={() => realizarVisita(visita)}
-                        >
-                          Realizar
-                        </button>
-                      )}
-
-                      <button
-                        className="agenda-botao-cancelar"
-                        onClick={() => cancelarVisita(visita)}
-                      >
-                        Cancelar
-                      </button>
-                    </>
-                  )}
+                  <button type="button" disabled={visita.status === 'cancelada'} onClick={() => editarVisita(visita)}>Editar</button>
+                  <button type="button" className="agenda-botao-historico" aria-expanded={historicoVisitaId === visita.id}
+                    onClick={() => alternarHistorico(visita.id)}>
+                    {historicoVisitaId === visita.id ? 'Fechar histórico de reagendamento' : 'Histórico de reagendamento'}
+                  </button>
                 </div>
                 
 {historicoVisitaId === visita.id && (

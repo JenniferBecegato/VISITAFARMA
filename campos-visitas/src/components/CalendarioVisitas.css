@@ -1,0 +1,31 @@
+.calendario-topo { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.calendario-topo h2 { text-transform:capitalize; margin:0; }
+.calendario-topo > div { display:flex; gap:8px; }
+.calendario-topo button { min-height:40px; min-width:40px; border:1px solid #dce5f0; border-radius:9px; background:white; color:#182f60; padding:6px 12px; cursor:pointer; }
+.calendario-ajuda { color:#68788f; font-size:13px; margin:14px 0; }
+.calendario-rolagem { overflow-x:auto; }
+.calendario-grade { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); min-width:650px; border-left:1px solid #e2e8f0; border-top:1px solid #e2e8f0; }
+.calendario-semana { text-align:center; padding:12px 0; background:#f4f7fb; font-size:12px; font-weight:bold; border-right:1px solid #e2e8f0; border-bottom:1px solid #e2e8f0; }
+.calendario-dia { min-height:112px; padding:7px; border-right:1px solid #e2e8f0; border-bottom:1px solid #e2e8f0; box-sizing:border-box; }
+.calendario-dia.vazio { background:#fafbfd; }
+.calendario-dia.selecionado { background:#f0f5ff; box-shadow:inset 0 0 0 2px #b49a60; }
+.calendario-dia-topo { display:flex; align-items:center; justify-content:space-between; }
+.calendario-dia-topo button { border:0; background:transparent; color:#52647d; min-height:32px; min-width:32px; border-radius:50%; cursor:pointer; }
+.calendario-dia.hoje .calendario-dia-topo > button:first-child { background:#182f60; color:white; font-weight:bold; }
+.calendario-dia-topo .calendario-agendar { color:#0758bd; font-size:18px; }
+.calendario-evento { display:flex; flex-direction:column; gap:3px; width:100%; text-align:left; border:0; border-left:3px solid #0758bd; border-radius:6px; padding:7px; margin-top:5px; color:#182f60; background:#e5efff; cursor:pointer; font-size:11px; overflow-wrap:anywhere; }
+.calendario-evento span { font-weight:600; } .calendario-evento strong { font-size:11px; } .calendario-evento small { text-transform:capitalize; font-size:10px; }
+.calendario-evento.realizada { background:#e2f6e9; border-color:#167448; } .calendario-evento.cancelada { background:#fff0f0; border-color:#b42318; } .calendario-evento.reagendada { background:#fff2dc; border-color:#a4650d; }
+@media(max-width:650px) { .calendario-topo { flex-wrap:wrap; } .calendario-grade { min-width:620px; } .calendario-dia { min-height:100px; } }
+
+.calendario-dia { position:relative; }
+.calendario-selecionar { position:absolute; inset:0; width:100%; height:100%; padding:0; border:0; background:transparent; cursor:pointer; }
+.calendario-selecionar:hover { background:#182f6008; }
+.calendario-selecionar:focus-visible { outline:3px solid #b49a60; outline-offset:-3px; }
+.calendario-dia-topo { position:relative; z-index:1; pointer-events:none; }
+.calendario-numero { display:grid; place-items:center; min-height:32px; min-width:32px; color:#52647d; font-size:13px; border-radius:50%; }
+.calendario-dia.hoje .calendario-numero { background:#182f60; color:white; font-weight:bold; }
+.calendario-dia-topo .calendario-agendar { pointer-events:auto; }
+.calendario-evento { position:relative; z-index:1; pointer-events:none; box-sizing:border-box; cursor:default; }
+.calendario-evento-nome { pointer-events:none; border:0; background:transparent; color:inherit; padding:0; text-align:left; font:inherit; font-weight:600; cursor:inherit; overflow-wrap:anywhere; }
+

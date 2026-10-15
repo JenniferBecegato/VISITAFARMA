@@ -1,5 +1,5 @@
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   db,
   gerarId,
@@ -8,6 +8,8 @@ import {
 } from '../database/database';
 
 import './FormularioVisita.css';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { gravarProdutosDaVisita } from '../database/catalogos';
 
 const USUARIO_TESTE = 'usuario-local-teste';
 
@@ -28,6 +30,7 @@ interface Props {
   visitaId: string;
   formularioId?: string;
   voltar: () => void;
+  registrarSaida: (salvar: (() => Promise<boolean>) | null) => void;
 }
 
 const dadosIniciais: DadosFormulario = {
@@ -38,6 +41,7 @@ const dadosIniciais: DadosFormulario = {
   perfilMedico: undefined,
   temaTrabalhado: '',
   produtosAbordados: '',
+  produtosSelecionados: [],
   amostrasDeixadas: '',
   materiaisPromocionais: '',
   nivelInteresse: undefined,
@@ -57,8 +61,13 @@ export default function FormularioVisita({
   medicoId,
   visitaId,
   formularioId,
-  voltar
+  voltar,
+  registrarSaida
 }: Props) {
+  const produtos = useLiveQuery(() => db.produtos.where('usuarioId').equals(USUARIO_TESTE)
+    .filter(p => p.ativo && !p.excluidoEm).sortBy('nome'), []);
+  const secretarias = useLiveQuery(() => db.secretarias.where('usuarioId').equals(USUARIO_TESTE)
+    .filter(s => !s.excluidoEm && (s.medicoIds ?? [s.medicoId]).includes(medicoId)).sortBy('nome'), [medicoId]);
   const [pagina, setPagina] = useState(1);
   const [dados, setDados] = useState<DadosFormulario>(
     dadosIniciais
@@ -72,22 +81,17 @@ export default function FormularioVisita({
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [mensagem, setMensagem] = useState('');
-  
-const [alterado, setAlterado] = useState(false);
-
-const dadosRef = useRef(dados);
-const criadoEmRef = useRef(criadoEm);
-const salvamentoRef = useRef<Promise<void>>(
-  Promise.resolve()
-);
-
-useEffect(() => {
-  dadosRef.current = dados;
-}, [dados]);
-
-useEffect(() => {
-  criadoEmRef.current = criadoEm;
-}, [criadoEm]);
+  const [alterado, setAlterado] = useState(false);
+  const [estadoSalvamento, setEstadoSalvamento] = useState<
+    'inicial' | 'salvando' | 'salvo' | 'erro'
+  >('inicial');
+  const [erroCarregamento, setErroCarregamento] = useState(false);
+  const dadosRef = useRef(dados);
+  const criadoEmRef = useRef(criadoEm);
+  const versaoRef = useRef(0);
+  const versaoSalvaRef = useRef(0);
+  const pendentesRef = useRef(0);
+  const salvamentoRef = useRef<Promise<unknown>>(Promise.resolve());
 
   useEffect(() => {
     let ativo = true;
@@ -122,36 +126,40 @@ useEffect(() => {
           throw new Error('Formulário não encontrado.');
         }
 
+        const secretariaId = visita.secretariaId ?? medico.secretariaId;
+        const secretaria = secretariaId ? await db.secretarias.get(secretariaId) : undefined;
         if (!ativo) return;
 
         if (formularioExistente) {
-          const {
-            id: _id,
-            usuarioId: _usuarioId,
-            medicoId: _medicoId,
-            visitaId: _visitaId,
-            criadoEm: _criadoEm,
-            atualizadoEm: _atualizadoEm,
-            sincronizacao: _sincronizacao,
-            excluidoEm: _excluidoEm,
-            ...campos
-          } = formularioExistente;
+          const campos = Object.fromEntries(
+            Object.keys(dadosIniciais).map(campo => [
+              campo, formularioExistente[campo as keyof DadosFormulario]
+            ])
+          ) as DadosFormulario;
 
+          dadosRef.current = campos;
+          criadoEmRef.current = formularioExistente.criadoEm;
           setDados(campos);
+          setEstadoSalvamento('salvo');
           setIdAtual(formularioExistente.id);
           setCriadoEm(formularioExistente.criadoEm);
         } else {
-          setDados({
+          const iniciais = {
             ...dadosIniciais,
             nomeMedico: medico.nome,
             especialidade: medico.especialidade,
             localClinica: visita.local || medico.clinica || '',
-            perfilMedico: medico.perfil
-          });
+            perfilMedico: medico.perfil,
+            nomeSecretaria: secretaria?.usuarioId === USUARIO_TESTE && !secretaria.excluidoEm &&
+              (secretaria.medicoIds ?? [secretaria.medicoId]).includes(medicoId) ? secretaria.nome : ''
+          };
+          dadosRef.current = iniciais;
+          setDados(iniciais);
         }
       } catch (erro) {
         console.error(erro);
         if (ativo) {
+          setErroCarregamento(true);
           setMensagem('Não foi possível carregar o formulário.');
         }
       } finally {
@@ -171,62 +179,124 @@ function alterar<K extends keyof DadosFormulario>(
   campo: K,
   valor: DadosFormulario[K]
 ) {
-  setDados(anterior => {
-    const novosDados = {
-      ...anterior,
-      [campo]: valor
-    };
-
-    dadosRef.current = novosDados;
-    return novosDados;
-  });
-
+  const novosDados = { ...dadosRef.current, [campo]: valor };
+  dadosRef.current = novosDados;
+  versaoRef.current += 1;
+  setDados(novosDados);
   setAlterado(true);
+  setEstadoSalvamento('salvando');
   setMensagem('');
 }
 
+// Toda leitura e gravação acontece dentro desta mesma fila, inclusive a finalização.
+const salvar = useCallback((finalizar = false): Promise<boolean> => {
+  if (carregando || erroCarregamento) return Promise.resolve(false);
+  pendentesRef.current += 1;
+  setSalvando(true);
+  setEstadoSalvamento('salvando');
+  const gravacao = salvamentoRef.current.catch(() => undefined).then(async () => {
+    // Obtém o estado mais recente quando chega a vez desta gravação.
+    const versao = versaoRef.current;
+    const campos = { ...dadosRef.current };
+    const status = await db.transaction('rw', [db.formularios, db.visitas, db.produtos, db.visitaProdutos], async () => {
+      const existente = await db.formularios.get(idAtual);
+      const visita = await db.visitas.get(visitaId);
+      if (!visita || visita.usuarioId !== USUARIO_TESTE || visita.medicoId !== medicoId) {
+        throw new Error('Visita não encontrada.');
+      }
+      if (finalizar && visita.status === 'cancelada') {
+        throw new Error('Não é possível finalizar uma visita cancelada.');
+      }
+      if (existente && (existente.usuarioId !== USUARIO_TESTE ||
+        existente.medicoId !== medicoId || existente.visitaId !== visitaId)) {
+        throw new Error('Formulário inválido.');
+      }
+      const agora = dataAtual();
+      const formulario: FormularioVisita = {
+        ...campos,
+        id: idAtual,
+        usuarioId: USUARIO_TESTE,
+        medicoId,
+        visitaId,
+        status: finalizar || existente?.status === 'finalizado' ? 'finalizado' : 'rascunho',
+        criadoEm: existente?.criadoEm ?? criadoEmRef.current,
+        atualizadoEm: agora,
+        sincronizacao: 'pendente'
+      };
+      await db.formularios.put(formulario);
+      if (campos.produtosSelecionados !== undefined) {
+        await gravarProdutosDaVisita(USUARIO_TESTE, visitaId, campos.produtosSelecionados);
+      }
+      if (finalizar) {
+        await db.visitas.update(visitaId, {
+          status: 'realizada', atualizadoEm: agora, sincronizacao: 'pendente'
+        });
+      }
+      return formulario.status;
+    });
+    versaoSalvaRef.current = versao;
+    dadosRef.current = { ...dadosRef.current, status };
+    setDados(atual => ({ ...atual, status }));
+    // Uma gravação anterior nunca limpa a indicação de uma edição posterior.
+    if (versaoRef.current === versao) {
+      setAlterado(false);
+      setEstadoSalvamento('salvo');
+      setMensagem(finalizar ? 'Formulário finalizado e salvo offline!' : '');
+    }
+    return true;
+  }).catch(erro => {
+    console.error('Erro ao salvar formulário:', erro);
+    setEstadoSalvamento('erro');
+    setMensagem('Erro ao salvar. Tente novamente antes de sair.');
+    return false;
+  }).finally(() => {
+    pendentesRef.current -= 1;
+    if (pendentesRef.current === 0) setSalvando(false);
+  });
+  salvamentoRef.current = gravacao;
+  return gravacao;
+}, [carregando, erroCarregamento, idAtual, medicoId, visitaId]);
+
+const salvarAntesDeSair = useCallback(async () => {
+  if (carregando) return false;
+  if (erroCarregamento) return true;
+  // Repete se houve digitação enquanto a transação estava em andamento.
+  do {
+    if (!await salvar()) return false;
+  } while (versaoRef.current !== versaoSalvaRef.current);
+  return true;
+}, [carregando, erroCarregamento, salvar]);
+
+useEffect(() => {
+  registrarSaida(salvarAntesDeSair);
+  return () => registrarSaida(null);
+}, [registrarSaida, salvarAntesDeSair]);
 
 useEffect(() => {
   if (carregando || !alterado) return;
-
-  const temporizador = window.setTimeout(() => {
-    const dadosParaSalvar = { ...dadosRef.current };
-
-    salvamentoRef.current = salvamentoRef.current
-      .catch(() => undefined)
-      .then(async () => {
-        const existente = await db.formularios.get(idAtual);
-
-        const formulario: FormularioVisita = {
-          ...dadosParaSalvar,
-          id: idAtual,
-          usuarioId: USUARIO_TESTE,
-          medicoId,
-          visitaId,
-          status: existente?.status ?? 'rascunho',
-          criadoEm: existente?.criadoEm ?? criadoEmRef.current,
-          atualizadoEm: dataAtual(),
-          sincronizacao: 'pendente'
-        };
-
-        await db.formularios.put(formulario);
-      });
-
-    void salvamentoRef.current
-      .then(() => {
-        setAlterado(false);
-        setMensagem('Alterações salvas automaticamente.');
-      })
-      .catch(erro => {
-        console.error('Erro no salvamento automático:', erro);
-        setMensagem('Não foi possível salvar automaticamente.');
-      });
-  }, 1000);
-
+  const temporizador = window.setTimeout(() => { void salvar(); }, 1000);
   return () => window.clearTimeout(temporizador);
-}, [dados, carregando, alterado, idAtual, medicoId, visitaId]);
+}, [dados, carregando, alterado, salvar]);
 
-
+useEffect(() => {
+  const antesDeFechar = (evento: BeforeUnloadEvent) => {
+    if (versaoRef.current !== versaoSalvaRef.current || pendentesRef.current > 0) {
+      evento.preventDefault();
+      evento.returnValue = '';
+    }
+  };
+  const aoOcultar = () => {
+    if (document.visibilityState === 'hidden' && versaoRef.current !== versaoSalvaRef.current) {
+      void salvar();
+    }
+  };
+  window.addEventListener('beforeunload', antesDeFechar);
+  document.addEventListener('visibilitychange', aoOcultar);
+  return () => {
+    window.removeEventListener('beforeunload', antesDeFechar);
+    document.removeEventListener('visibilitychange', aoOcultar);
+  };
+}, [salvar]);
 
 function validarFormulario(): boolean {
   const campos = dadosRef.current;
@@ -258,8 +328,8 @@ function validarFormulario(): boolean {
 
   if (
     !obrigatorio(campos.temaTrabalhado) ||
-    !obrigatorio(campos.produtosAbordados) ||
-    !obrigatorio(campos.amostrasDeixadas)
+    (!obrigatorio(campos.produtosAbordados) && !campos.produtosSelecionados?.length) ||
+    (!obrigatorio(campos.amostrasDeixadas) && !campos.produtosSelecionados?.some(p => p.quantidadeAmostras > 0))
   ) {
     setPagina(3);
     setMensagem(
@@ -292,99 +362,6 @@ function validarFormulario(): boolean {
 }
 
 
-async function salvar(finalizar = false) {
-  setSalvando(true);
-  setMensagem('');
-
-  try {
-    // Aguarda qualquer gravação automática anterior.
-    await salvamentoRef.current;
-
-    const agora = dataAtual();
-    const existente = await db.formularios.get(idAtual);
-
-    const formulario: FormularioVisita = {
-      ...dadosRef.current,
-      id: idAtual,
-      usuarioId: USUARIO_TESTE,
-      medicoId,
-      visitaId,
-      
-status:
-  finalizar || existente?.status === 'finalizado'
-    ? 'finalizado'
-    : 'rascunho',
-
-      criadoEm: existente?.criadoEm ?? criadoEmRef.current,
-      atualizadoEm: agora,
-      sincronizacao: 'pendente'
-    };
-
-    
-const gravacao = salvamentoRef.current.then(async () => {
-  await db.transaction(
-    'rw',
-    db.formularios,
-    db.visitas,
-    async () => {
-      const visita = await db.visitas.get(visitaId);
-
-      if (
-        !visita ||
-        visita.usuarioId !== USUARIO_TESTE ||
-        visita.medicoId !== medicoId
-      ) {
-        throw new Error('Visita não encontrada.');
-      }
-
-      if (visita.status === 'cancelada') {
-        throw new Error(
-          'Não é possível finalizar uma visita cancelada.'
-        );
-      }
-
-      await db.formularios.put(formulario);
-
-      if (finalizar) {
-        await db.visitas.update(visitaId, {
-          status: 'realizada',
-          atualizadoEm: agora,
-          sincronizacao: 'pendente'
-        });
-      }
-    }
-  );
-});
-
-salvamentoRef.current = gravacao;
-
-await gravacao;
-
-
-    setDados(anterior => ({
-      ...anterior,
-      status: formulario.status
-    }));
-
-    setAlterado(false);
-
-    setMensagem(
-      finalizar
-        ? 'Formulário finalizado e salvo offline!'
-        : 'Rascunho salvo no dispositivo!'
-    );
-
-    return true;
-  } catch (erro) {
-    console.error(erro);
-    setMensagem('Erro ao salvar. Tente novamente.');
-    return false;
-  } finally {
-    setSalvando(false);
-  }
-}
-
-
   async function avancar() {
     const sucesso = await salvar(false);
 
@@ -393,10 +370,10 @@ await gravacao;
     }
   }
 
-  function voltarPagina() {
+  async function voltarPagina() {
     if (pagina > 1) {
       setPagina(anterior => anterior - 1);
-    } else {
+    } else if (await salvarAntesDeSair()) {
       voltar();
     }
   }
@@ -410,6 +387,12 @@ await gravacao;
       <h1>Relatório de Visita Médica</h1>
 
       <p>Página {pagina} de 6</p>
+      {estadoSalvamento !== 'inicial' && (
+        <p role="status" aria-live="polite" className={`salvamento-${estadoSalvamento}`}>
+          {estadoSalvamento === 'salvando' ? 'Salvando...' :
+            estadoSalvamento === 'erro' ? 'Erro ao salvar' : 'Salvo offline'}
+        </p>
+      )}
 
       <progress
         value={pagina}
@@ -417,7 +400,7 @@ await gravacao;
         style={{ width: '100%', marginBottom: 20 }}
       />
 
-      {pagina === 1 && (
+      {!erroCarregamento && pagina === 1 && (
         <section className="medicos-card">
           <h2>Informações iniciais</h2>
 
@@ -448,7 +431,7 @@ await gravacao;
         </section>
       )}
 
-      {pagina === 2 && (
+      {!erroCarregamento && pagina === 2 && (
         <section className="medicos-card">
           <h2>Dados do médico</h2>
 
@@ -494,9 +477,31 @@ await gravacao;
         </section>
       )}
 
-      {pagina === 3 && (
+      {!erroCarregamento && pagina === 3 && (
         <section className="medicos-card">
           <h2>Conteúdo da visita</h2>
+          <label>Adicionar produto do catálogo
+            <select value="" onChange={e => {
+              const produto = produtos?.find(p => p.id === e.target.value);
+              if (produto) alterar('produtosSelecionados', [...(dados.produtosSelecionados ?? []),
+                { produtoId: produto.id, nome: produto.nome, quantidadeAmostras: 0 }]);
+            }}>
+              <option value="">Selecione um produto</option>
+              {produtos?.filter(p => !dados.produtosSelecionados?.some(s => s.produtoId === p.id)).map(p =>
+                <option key={p.id} value={p.id}>{p.nome}</option>)}
+            </select>
+          </label>
+          {dados.produtosSelecionados?.map(item => <div key={item.produtoId} className="formulario-produto">
+            <strong>{item.nome}</strong>
+            <label>Quantidade de amostras
+              <input type="number" min="0" max="1000000" step="1" value={item.quantidadeAmostras}
+                onChange={e => alterar('produtosSelecionados', (dados.produtosSelecionados ?? []).map(p =>
+                  p.produtoId === item.produtoId ? { ...p, quantidadeAmostras: Number(e.target.value) } : p))} />
+            </label>
+            <button type="button" onClick={() => alterar('produtosSelecionados',
+              (dados.produtosSelecionados ?? []).filter(p => p.produtoId !== item.produtoId))}>Remover {item.nome}</button>
+          </div>)}
+          <p>Você também pode informar outros produtos e amostras nos campos abaixo. Se não deixou amostras, escreva “Nenhuma”.</p>
 
           <label>
             Tema trabalhado *
@@ -544,7 +549,7 @@ await gravacao;
         </section>
       )}
 
-      {pagina === 4 && (
+      {!erroCarregamento && pagina === 4 && (
         <section className="medicos-card">
           <h2>Feedback e receptividade</h2>
 
@@ -590,7 +595,7 @@ await gravacao;
         </section>
       )}
 
-      {pagina === 5 && (
+      {!erroCarregamento && pagina === 5 && (
         <section className="medicos-card">
           <h2>Próximos passos e planos de ação</h2>
 
@@ -663,9 +668,16 @@ await gravacao;
         </section>
       )}
 
-      {pagina === 6 && (
+      {!erroCarregamento && pagina === 6 && (
         <section className="medicos-card">
           <h2>Observações de relacionamento</h2>
+          {!!secretarias?.length && <label>Secretárias vinculadas ao médico
+            <select value="" onChange={e => {
+              const secretaria = secretarias.find(s => s.id === e.target.value);
+              if (secretaria) alterar('nomeSecretaria', secretaria.nome);
+            }}><option value="">Selecionar contato cadastrado</option>
+              {secretarias.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+            </select></label>}
 
           <label>
             Nome da secretária *
@@ -699,14 +711,15 @@ await gravacao;
       <div className="medicos-acoes">
         <button
           type="button"
-          onClick={voltarPagina}
+          disabled={salvando}
+          onClick={() => void voltarPagina()}
         >
-          {pagina === 1 ? 'Voltar' : 'Anterior'}
+          {!erroCarregamento && pagina === 1 ? 'Voltar' : 'Anterior'}
         </button>
 
         <button
           type="button"
-          disabled={salvando}
+          disabled={salvando || erroCarregamento}
           onClick={() => void salvar(false)}
         >
           Salvar rascunho
@@ -716,7 +729,7 @@ await gravacao;
           <button
             type="button"
             className="medicos-botao-principal"
-            disabled={salvando}
+            disabled={salvando || erroCarregamento}
             onClick={() => void avancar()}
           >
             Próximo
@@ -725,7 +738,7 @@ await gravacao;
           <button
             type="button"
             className="medicos-botao-principal"
-            disabled={salvando}
+            disabled={salvando || erroCarregamento}
             
 onClick={() => {
   if (validarFormulario()) {

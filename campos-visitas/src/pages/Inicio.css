@@ -308,3 +308,21 @@
     padding: 5px 8px;
   }
 }
+
+.inicio-topo h1 { overflow-wrap: anywhere; }
+.inicio-mes { color: #68788f; font-size: 13px; margin-top: -8px; }
+
+.inicio-medico-status { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.inicio-nome-medico { background:none; padding:0; border:0; color:#182f60; font-weight:600; font-size:14px; text-align:left; cursor:pointer; }
+.inicio-nome-medico:hover { text-decoration:underline; }
+.inicio-acoes-visita { display:flex !important; flex:0 1 auto !important; flex-direction:row !important; flex-wrap:wrap; gap:6px !important; justify-content:flex-end; max-width:470px; }
+.inicio-acoes-visita button { background:white; border:1px solid #d9e1ed; color:#52647d; border-radius:7px; padding:8px 10px; font-size:12px; cursor:pointer; min-height:36px; }
+.inicio-acoes-visita .realizar { background:#e2f6e9; color:#167448; border-color:#c4ead2; }
+.inicio-acoes-visita .cancelar { background:#fff0f0; color:#b42318; border-color:#ffd7d7; }
+.inicio-acoes-visita .abrir-formulario { color:#0758bd; background:#edf4ff; border-color:#d1e2ff; }
+.inicio-acoes-visita button:disabled { opacity:.5; cursor:wait; }
+@media(max-width:1000px) { .inicio-acoes-visita { flex-basis:100% !important; max-width:none; justify-content:flex-start; } }
+
+.inicio-acoes-visita { flex-direction:column !important; align-items:flex-end; }
+.inicio-acoes-linha { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:6px; }
+@media(max-width:1000px) { .inicio-acoes-visita { align-items:flex-start; } .inicio-acoes-linha { justify-content:flex-start; } }

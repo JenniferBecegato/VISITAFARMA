@@ -1,10 +1,17 @@
 
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import Layout, { type Pagina } from './components/Layout';
 
 import Inicio from './pages/Inicio';
+import Login from './pages/Login';
+import { lerIdentificacao, guardarIdentificacao, limparIdentificacao, type Identificacao } from './services/identificacao';
 import Agenda from './pages/Agenda';
+import Formularios from './pages/Formularios';
+import { db, type Visita } from './database/database';
+import Produtos from './pages/Produtos';
+import Relatorios from './pages/Relatorios';
+import Secretarias from './pages/Secretarias';
 import Medicos from './pages/Medicos';
 import PastaMedico from './pages/PastaMedico';
 import FormularioVisita from './pages/FormularioVisita';
@@ -16,6 +23,7 @@ interface FormularioSelecionado {
 }
 
 function App() {
+  const [identificacao, setIdentificacao] = useState<Identificacao | null>(lerIdentificacao);
   const [paginaAtual, setPaginaAtual] =
     useState<Pagina>('inicio');
 
@@ -25,7 +33,33 @@ function App() {
   const [formularioSelecionado, setFormularioSelecionado] =
     useState<FormularioSelecionado | null>(null);
 
-  function navegar(pagina: Pagina) {
+  const saidaFormularioRef = useRef<(() => Promise<boolean>) | null>(null);
+  const navegandoRef = useRef(false);
+  const registrarSaida = useCallback((salvar: (() => Promise<boolean>) | null) => {
+    saidaFormularioRef.current = salvar;
+  }, []);
+
+  async function navegar(pagina: Pagina) {
+    if (navegandoRef.current) return;
+    navegandoRef.current = true;
+    try {
+      if (saidaFormularioRef.current && !await saidaFormularioRef.current()) return;
+      trocarPagina(pagina);
+    } finally {
+      navegandoRef.current = false;
+    }
+  }
+
+  const [visitaEdicao, setVisitaEdicao] = useState<Visita>();
+  const [erroNavegacao, setErroNavegacao] = useState('');
+
+  async function prepararBackup() {
+    return saidaFormularioRef.current ? saidaFormularioRef.current() : true;
+  }
+
+  function trocarPagina(pagina: Pagina) {
+    setVisitaEdicao(undefined);
+    setErroNavegacao('');
     setFormularioSelecionado(null);
     setMedicoSelecionadoId(null);
     setPaginaAtual(pagina);
@@ -56,7 +90,7 @@ function App() {
       formularioId
     });
 
-    setPaginaAtual('medicos');
+    setPaginaAtual('formularios');
   }
 
   function voltarParaPasta() {
@@ -64,8 +98,24 @@ function App() {
     setPaginaAtual('medicos');
   }
 
+  function editarVisita(visita: Visita) {
+    setVisitaEdicao(visita); setPaginaAtual('agenda');
+  }
+
+  async function abrirRelatorio(visita: Visita) {
+    try {
+      setErroNavegacao('');
+      const formularios = await db.formularios.where('visitaId').equals(visita.id)
+        .filter(f => f.usuarioId === 'usuario-local-teste' && !f.excluidoEm).toArray();
+      if (visita.status === 'cancelada' && !formularios.length) {
+        setErroNavegacao('Esta visita foi cancelada e não possui formulário.'); return;
+      }
+      abrirFormulario(visita.medicoId, visita.id, formularios[0]?.id);
+    } catch { setErroNavegacao('Não foi possível abrir o formulário. Tente novamente.'); }
+  }
+
   function renderizarPagina() {
-    if (paginaAtual === 'medicos' && formularioSelecionado) {
+    if (paginaAtual === 'formularios' && formularioSelecionado) {
       return (
         <FormularioVisita
           key={
@@ -76,16 +126,17 @@ function App() {
           visitaId={formularioSelecionado.visitaId}
           formularioId={formularioSelecionado.formularioId}
           voltar={voltarParaPasta}
+          registrarSaida={registrarSaida}
         />
       );
     }
 
     switch (paginaAtual) {
       case 'inicio':
-        return <Inicio />;
+        return <Inicio nomeUsuario={identificacao?.nome ?? ''} unidade={identificacao?.unidade ?? ''} editarVisita={editarVisita} abrirRelatorio={abrirRelatorio} abrirPasta={abrirPastaMedico} />;
 
       case 'agenda':
-        return <Agenda />;
+        return <Agenda key={visitaEdicao?.id ?? 'agenda'} visitaInicial={visitaEdicao} abrirPasta={abrirPastaMedico} />;
 
       case 'medicos':
         if (medicoSelecionadoId) {
@@ -100,35 +151,35 @@ function App() {
 
         return <Medicos abrirPasta={abrirPastaMedico} />;
 
+      case 'secretarias':
+        return <Secretarias />;
+
+      case 'formularios':
+        return <Formularios abrir={abrirRelatorio} />;
+
       case 'produtos':
-        return (
-          <div className="pagina-temporaria">
-            <h1>Produtos</h1>
-            <p>
-              Aqui vamos cadastrar os produtos apresentados
-              durante as visitas.
-            </p>
-          </div>
-        );
+        return <Produtos />;
 
       case 'relatorios':
-        return (
-          <div className="pagina-temporaria">
-            <h1>Relatórios</h1>
-            <p>
-              Aqui aparecerão os relatórios de visitas,
-              médicos e produtos.
-            </p>
-          </div>
-        );
+        return <Relatorios />;
 
       default:
         return null;
     }
   }
 
+  if (!identificacao) return <Login entrar={valor => {
+    guardarIdentificacao(valor); setIdentificacao(valor); trocarPagina('inicio');
+  }} />;
+
+  async function alterarIdentificacao() {
+    if (!await prepararBackup()) return;
+    limparIdentificacao(); setIdentificacao(null); trocarPagina('inicio');
+  }
+
   return (
-    <Layout paginaAtual={paginaAtual} navegar={navegar}>
+    <Layout paginaAtual={paginaAtual} navegar={navegar} prepararBackup={prepararBackup} identificacao={identificacao} alterarIdentificacao={alterarIdentificacao}>
+      {erroNavegacao && <p role="alert">{erroNavegacao}</p>}
       {renderizarPagina()}
     </Layout>
   );

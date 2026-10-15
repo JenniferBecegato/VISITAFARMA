@@ -218,3 +218,30 @@
     font-size: 10px;
   }
 }
+
+.app-backup { min-height: 44px; border: 1px solid #b49a60; background: transparent; color: white;
+  padding: 8px 12px; border-radius: 8px; cursor: pointer; }
+.app-backup:disabled { opacity: .6; cursor: wait; }
+@media (max-width: 420px) {
+  .app-cabecalho { padding-left: 10px; padding-right: 10px; }
+  .app-marca { gap: 6px; }
+  .app-marca strong { font-size: 12px; }
+  .app-marca span { font-size: 10px; }
+  .app-cabecalho-direita { gap: 6px; }
+  .app-backup { max-width: 82px; font-size: 11px; padding: 5px; }
+}
+
+.app-identificacao { padding: 4px 12px 18px; margin-bottom: 12px; border-bottom: 1px solid #e5ebf4; overflow-wrap: anywhere; }
+.app-identificacao strong, .app-identificacao small { display: block; margin-bottom: 6px; }
+.app-identificacao small { color: #68788f; }
+.app-menu-lateral .app-identificacao button { padding: 6px 0; font-size: 12px; color: #0758bd; }
+.app-conta { background: transparent; border: none; color: white; cursor: pointer; max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-height: 44px; }
+@media(max-width: 650px) { .app-status { display: none; } .app-conta { max-width: 64px; font-size: 12px; } }
+
+@media(max-width:1100px) { .app-menu-inferior { overflow-x:auto; justify-content:flex-start; } .app-menu-inferior button { flex:1 0 80px; } }
+
+.app-menu-lateral { overflow-y:auto; }
+
+/* Exibe apenas o símbolo à esquerda da imagem original da marca. */
+.app-logo { position:relative; overflow:hidden; flex-shrink:0; background:white; border-radius:9px; }
+.app-logo img { position:absolute; top:0; left:0; height:100%; width:auto; max-width:none; display:block; }

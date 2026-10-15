@@ -1,8 +1,10 @@
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type Visita } from '../database/database';
 import './Inicio.css';
+import { alterarSituacaoVisita } from '../database/visitas';
+import { separarVisitas } from '../utils/inicio';
 
 const USUARIO_TESTE = 'usuario-local-teste';
 
@@ -24,7 +26,27 @@ function formatarData(data: string) {
   return `${dia}/${mes}/${ano}`;
 }
 
-export default function Inicio() {
+interface Props { nomeUsuario: string; unidade: string; editarVisita: (visita: Visita) => void;
+  abrirRelatorio: (visita: Visita) => void; abrirPasta: (medicoId: string) => void; }
+export default function Inicio({ nomeUsuario, unidade, editarVisita, abrirRelatorio, abrirPasta }: Props) {
+  const [mensagem, setMensagem] = useState('');
+  const [atualizando, setAtualizando] = useState<string>();
+  async function mudarSituacao(visita: Visita, status: 'realizada' | 'cancelada') {
+    if (!window.confirm(status === 'realizada' ? 'Marcar esta visita como realizada?' : 'Cancelar esta visita?')) return;
+    setAtualizando(visita.id); setMensagem('');
+    try { await alterarSituacaoVisita(USUARIO_TESTE, visita.id, status); }
+    catch (erro) { setMensagem(erro instanceof Error ? erro.message : 'Não foi possível atualizar a visita.'); }
+    finally { setAtualizando(undefined); }
+  }
+  const [hoje, setHoje] = useState(obterDataLocal);
+  useEffect(() => {
+    const atualizar = () => setHoje(obterDataLocal());
+    const temporizador = window.setInterval(atualizar, 30000);
+    window.addEventListener('focus', atualizar);
+    document.addEventListener('visibilitychange', atualizar);
+    return () => { window.clearInterval(temporizador); window.removeEventListener('focus', atualizar);
+      document.removeEventListener('visibilitychange', atualizar); };
+  }, []);
   const visitas = useLiveQuery(
     () => db.visitas
       .where('usuarioId')
@@ -41,55 +63,7 @@ export default function Inicio() {
     []
   );
 
-  const dados = useMemo(() => {
-    const hoje = obterDataLocal();
-
-    const visitasValidas = (visitas ?? [])
-      .filter(visita => !visita.excluidoEm);
-
-    const visitasHoje = visitasValidas
-      .filter(visita => visita.data === hoje)
-      .sort((a, b) =>
-        a.horaInicio.localeCompare(b.horaInicio)
-      );
-
-    const realizadas = visitasHoje.filter(
-      visita => visita.status === 'realizada'
-    ).length;
-
-    const pendentes = visitasHoje.filter(
-      visita =>
-        visita.status === 'agendada' ||
-        visita.status === 'reagendada'
-    ).length;
-
-    const proximasVisitas = visitasValidas
-      .filter(visita => {
-        if (
-          visita.status === 'realizada' ||
-          visita.status === 'cancelada'
-        ) {
-          return false;
-        }
-
-        return (
-          `${visita.data}T${visita.horaInicio}` >=
-          `${hoje}T${new Date().toTimeString().slice(0, 5)}`
-        );
-      })
-      .sort((a, b) =>
-        `${a.data}T${a.horaInicio}`.localeCompare(
-          `${b.data}T${b.horaInicio}`
-        )
-      );
-
-    return {
-      visitasHoje,
-      realizadas,
-      pendentes,
-      proximaVisita: proximasVisitas[0]
-    };
-  }, [visitas]);
+  const dados = useMemo(() => separarVisitas(visitas ?? [], hoje), [visitas, hoje]);
 
   function nomeMedico(visita: Visita) {
     return medicos?.find(
@@ -101,12 +75,12 @@ export default function Inicio() {
     <div className="inicio-pagina">
       <div className="inicio-topo">
         <div>
-          <h1>Início</h1>
-          <p>Resumo das suas visitas farmacêuticas.</p>
+          <h1>Olá, {nomeUsuario}!</h1>
+          <p>Unidade {unidade} · Resumo das suas visitas farmacêuticas.</p>
         </div>
 
         <span className="inicio-data">
-          {formatarData(obterDataLocal())}
+          {formatarData(hoje)}
         </span>
       </div>
 
@@ -130,35 +104,7 @@ export default function Inicio() {
         </div>
       </div>
 
-      <section className="inicio-card">
-        <h2>Próxima visita</h2>
-
-        {dados.proximaVisita ? (
-          <div className="inicio-proxima">
-            <div className="inicio-horario">
-              {dados.proximaVisita.horaInicio}
-            </div>
-
-            <div>
-              <strong>{nomeMedico(dados.proximaVisita)}</strong>
-
-              <p>
-                {formatarData(dados.proximaVisita.data)}
-              </p>
-
-              <small>
-                {dados.proximaVisita.local ||
-                  'Local não informado'}
-              </small>
-            </div>
-          </div>
-        ) : (
-          <p className="inicio-vazio">
-            Nenhuma próxima visita agendada.
-          </p>
-        )}
-      </section>
-
+      {mensagem && <p role="alert">{mensagem}</p>}
       <section className="inicio-card">
         <h2>Minhas visitas de hoje</h2>
 
@@ -173,19 +119,38 @@ export default function Inicio() {
                 <strong>{visita.horaInicio}</strong>
 
                 <div>
-                  <span>{nomeMedico(visita)}</span>
+                  <div className="inicio-medico-status"><button className="inicio-nome-medico" type="button" onClick={() => abrirPasta(visita.medicoId)}>{nomeMedico(visita)}</button>
+                    <span className={`inicio-status ${visita.status}`}>{visita.status}</span></div>
                   <small>
                     {visita.local || 'Local não informado'}
                   </small>
                 </div>
 
-                <span className={`inicio-status ${visita.status}`}>
-                  {visita.status}
-                </span>
+                <div className="inicio-acoes-visita">
+                  {visita.status !== 'cancelada' && visita.status !== 'realizada' &&
+                    <div className="inicio-acoes-linha">
+                      <button type="button" disabled={!!atualizando} className="realizar" onClick={() => void mudarSituacao(visita, 'realizada')}>Realizar</button>
+                      <button type="button" disabled={!!atualizando} className="cancelar" onClick={() => void mudarSituacao(visita, 'cancelada')}>Cancelar</button>
+                      <button type="button" disabled={!!atualizando} onClick={() => editarVisita(visita)}>Reagendar visita</button>
+                    </div>}
+                  <div className="inicio-acoes-linha">
+                    {visita.status !== 'cancelada' && <button type="button" disabled={!!atualizando} onClick={() => editarVisita(visita)}>Editar</button>}
+                    <button type="button" disabled={!!atualizando} className="abrir-formulario" onClick={() => abrirRelatorio(visita)}>Formulário</button>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
         )}
+      </section>
+      <section className="inicio-card">
+        <h2>Próximas visitas</h2><p className="inicio-mes">Agendamentos para os próximos dias deste mês.</p>
+        {dados.proximasVisitas.length === 0 ? <p className="inicio-vazio">Nenhuma próxima visita agendada neste mês.</p> :
+          <div className="inicio-lista">{dados.proximasVisitas.map(visita => <div className="inicio-visita" key={visita.id}>
+            <strong>{visita.horaInicio}</strong><div><span>{nomeMedico(visita)}</span>
+              <small>{formatarData(visita.data)} · {visita.local || 'Local não informado'}</small></div>
+            <span className={`inicio-status ${visita.status}`}>{visita.status}</span>
+          </div>)}</div>}
       </section>
     </div>
   );

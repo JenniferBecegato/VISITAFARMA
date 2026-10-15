@@ -1,0 +1,14 @@
+.login-pagina { min-height: 100dvh; display: grid; place-items: center; padding: 24px; box-sizing: border-box;
+  background: #182f60 url('../assets/fundo-corporativo.png') center center / cover no-repeat; color: #182f60; }
+.login-card { box-sizing: border-box; width: min(100%, 470px); padding: 36px; background: white; border-radius: 22px;
+  box-shadow: 0 16px 60px #102d6026; border-top: 5px solid #b49a60; }
+.login-marca { display: flex; justify-content: center; margin-bottom: 30px; }
+.login-marca img { display: block; width: min(100%, 310px); height: auto; }
+.login-card h1 { font-size: 24px; line-height: 1.35; text-align: center; margin: 0 0 12px; }
+.login-card p { color: #60748d; line-height: 1.6; }
+.login-card label { display: flex; flex-direction: column; gap: 8px; margin-top: 20px; font-weight: 600; }
+.login-card input, .login-card select { width: 100%; box-sizing: border-box; min-height: 48px; padding: 12px; border: 1px solid #cad5e4; border-radius: 9px; font: inherit; background: white; color: #182f60; }
+.login-card button { width: 100%; margin-top: 26px; min-height: 48px; color: white; background: #182f60; border: none; border-radius: 9px; font: inherit; font-weight: bold; cursor: pointer; }
+.login-card .login-nota { font-size: 12px; margin: 22px 0 0; }
+.login-card :focus-visible { outline: 3px solid #b49a60; outline-offset: 2px; }
+@media(max-width: 480px) { .login-pagina { padding: 16px; } .login-card { padding: 24px; } }
