@@ -10,3 +10,18 @@
   .relatorios-tabela { overflow: visible; }
   .relatorios-tabela thead { display: table-header-group; }
 }
+
+.relatorios-campos-busca { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; }
+.relatorios-campos-busca label { flex: 0 1 260px; min-width: 180px; margin: 0; }
+.relatorios-campos-busca .relatorios-buscar { min-width: 104px; min-height: 42px; padding: 10px 20px; font-size: 14px; }
+@media (max-width: 650px) {
+  .relatorios-campos-busca { gap: 12px; }
+  .relatorios-campos-busca label { flex: 1 1 100%; min-width: 0; }
+  .relatorios-campos-busca .relatorios-buscar { width: auto; }
+}
+
+.relatorios-lista-vazia { text-align: center; color: #94a3b8; padding: 20px 0; margin: 0; }
+
+@media print {
+  .app-identificacao-mobile { display: none !important; }
+}

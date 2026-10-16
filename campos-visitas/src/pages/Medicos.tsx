@@ -249,13 +249,7 @@ export default function Medicos({ abrirPasta }: MedicosProps) {
                 />
               </label>
 
-              <label>
-                Endereço
-                <input
-                  value={formulario.endereco}
-                  onChange={e => atualizarCampo('endereco', e.target.value)}
-                />
-              </label>
+
             </div>
 
             <fieldset className="medico-secretarias"><legend>Secretárias do médico</legend>
@@ -308,7 +302,7 @@ export default function Medicos({ abrirPasta }: MedicosProps) {
         </section>
       )}
 
-      <section className="medicos-card">
+      {!mostrarFormulario && <section className="medicos-card">
         <div className="medicos-lista-topo">
           <h2>Meus médicos ({medicosFiltrados.length})</h2>
 
@@ -351,7 +345,7 @@ export default function Medicos({ abrirPasta }: MedicosProps) {
             ))
           )}
         </div>
-      </section>
+      </section>}
     </main>
   );
 }

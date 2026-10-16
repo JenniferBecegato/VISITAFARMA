@@ -19,9 +19,15 @@ export default function Secretarias() {
   const trava = useRef(false);
   const medicos = useLiveQuery(() => db.medicos.where('usuarioId').equals(USUARIO).filter(m => !m.excluidoEm).sortBy('nome'), []);
   const secretarias = useLiveQuery(() => db.secretarias.where('usuarioId').equals(USUARIO).filter(s => !s.excluidoEm).toArray(), []);
+  function completarContato(contato: DadosSecretaria): DadosSecretaria {
+    const vinculados = contato.medicoIds.map(id => medicos?.find(m => m.id === id)).filter(m => !!m);
+    const telefones = [...new Set(vinculados.map(m => m.telefone?.trim()).filter(Boolean))].join(' / ');
+    const locais = [...new Set(vinculados.map(m => m.clinica?.trim() || m.endereco?.trim()).filter(Boolean))].join(' / ');
+    return { ...contato, telefone: contato.telefone || telefones, localTrabalho: contato.localTrabalho || locais };
+  }
   function editar(s?: Secretaria) {
-    setDados(s ? { nome: s.nome, telefone: s.telefone ?? '', localTrabalho: s.localTrabalho ?? '',
-      observacoes: s.observacoes ?? '', medicoIds: s.medicoIds ?? [s.medicoId] } : inicial);
+    setDados(s ? completarContato( { nome: s.nome, telefone: s.telefone ?? '', localTrabalho: s.localTrabalho ?? '',
+      observacoes: s.observacoes ?? '', medicoIds: s.medicoIds ?? [s.medicoId] }) : inicial);
     setEditando(s?.id); setAberto(true); setErro(''); setMensagem('');
   }
   async function salvar(e: FormEvent) {
@@ -51,16 +57,16 @@ export default function Secretarias() {
       </div><fieldset className="cadastro-vinculos"><legend>Médicos vinculados *</legend>
         {!medicos?.length && <p>Cadastre um médico antes de cadastrar sua secretária.</p>}
         {medicos?.map(m => <label className="cadastro-opcao" key={m.id}><input type="checkbox" checked={dados.medicoIds.includes(m.id)}
-          onChange={e => setDados({ ...dados, medicoIds: e.target.checked ? [...dados.medicoIds, m.id] : dados.medicoIds.filter(id => id !== m.id) })} />{m.nome}</label>)}
+          onChange={e => setDados(completarContato({ ...dados, medicoIds: e.target.checked ? [...dados.medicoIds, m.id] : dados.medicoIds.filter(id => id !== m.id) }))} />{m.nome}</label>)}
       </fieldset>{erro && <p className="medicos-erro" role="alert">{erro}</p>}
       <div className="medicos-acoes"><button type="button" onClick={() => setAberto(false)}>Cancelar</button>
         <button type="submit" className="medicos-botao-principal">{salvando ? 'Salvando...' : 'Salvar secretária'}</button></div></fieldset>
     </form></section>}
-    <section className="medicos-card"><div className="medicos-lista-topo"><h2>Contatos ({lista.length})</h2>
+    {!aberto && <section className="medicos-card"><div className="medicos-lista-topo"><h2>Contatos ({lista.length})</h2>
       </div>
       {secretarias === undefined ? <p>Carregando...</p> : !lista.length ? <p className="medicos-vazio">Nenhuma secretária encontrada.</p> : lista.map(s =>
         <article className="medicos-item" key={s.id}><div className="medicos-info"><strong>{s.nome}</strong><span>{s.telefone || 'Telefone não informado'}</span>
           <span>{s.localTrabalho}</span><small>{(s.medicoIds ?? [s.medicoId]).map(id => medicos?.find(m => m.id === id)?.nome ?? 'Médico indisponível').join(', ')}</small>
           <small>{s.observacoes}</small></div><button disabled={salvando} onClick={() => editar(s)}>Editar</button></article>)}
-    </section></div>;
+    </section>}</div>;
 }

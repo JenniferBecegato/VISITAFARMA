@@ -345,3 +345,19 @@
 .agenda-nome-medico { background:none; border:0; padding:0; text-align:left; font:inherit; font-weight:600; color:#182f60; cursor:pointer; }
 .agenda-nome-medico:hover { text-decoration:underline; }
 .agenda-item-acoes button:disabled { opacity:.45; cursor:not-allowed; }
+
+/* As ações dependem do status da visita, inclusive em datas anteriores. */
+.agenda-item-acoes { flex-direction: column; align-items: flex-end; }
+.agenda-acoes-linha { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; max-width: 100%; }
+.agenda-item-acoes button { min-height: 44px; max-width: 100%; overflow-wrap: anywhere; }
+.agenda-item-acoes .agenda-botao-formulario { background: #edf4ff; border-color: #d1e2ff; color: #0758bd; }
+@media (max-width: 900px) {
+  .agenda-item-acoes { align-items: flex-start; }
+  .agenda-acoes-linha { justify-content: flex-start; }
+}
+
+.agenda-produtos-campo { min-width: 0; }
+.agenda-produtos-campo small { display: block; color: #68788f; font-size: 12px; line-height: 1.4; margin-top: 6px; }
+.agenda-produtos-sugestoes { display: flex; flex-direction: column; border: 1px solid #d9e1ed; border-radius: 8px; background: white; max-height: 220px; overflow-y: auto; margin-top: 4px; }
+.agenda-produtos-sugestoes button { text-align: left; min-height: 44px; padding: 10px 12px; border: 0; background: white; color: #182f60; overflow-wrap: anywhere; }
+.agenda-produtos-sugestoes button:hover, .agenda-produtos-sugestoes button:focus-visible { background: #edf4ff; }

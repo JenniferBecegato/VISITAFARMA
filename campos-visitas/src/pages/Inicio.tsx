@@ -1,3 +1,4 @@
+import { rotuloStatusVisita } from '../utils/statusVisita';
 
 import { useEffect, useMemo, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -120,7 +121,7 @@ export default function Inicio({ nomeUsuario, unidade, editarVisita, abrirRelato
 
                 <div>
                   <div className="inicio-medico-status"><button className="inicio-nome-medico" type="button" onClick={() => abrirPasta(visita.medicoId)}>{nomeMedico(visita)}</button>
-                    <span className={`inicio-status ${visita.status}`}>{visita.status}</span></div>
+                    <span className={`inicio-status ${visita.status}`}>{rotuloStatusVisita(visita.status)}</span></div>
                   <small>
                     {visita.local || 'Local não informado'}
                   </small>
@@ -149,7 +150,7 @@ export default function Inicio({ nomeUsuario, unidade, editarVisita, abrirRelato
           <div className="inicio-lista">{dados.proximasVisitas.map(visita => <div className="inicio-visita" key={visita.id}>
             <strong>{visita.horaInicio}</strong><div><span>{nomeMedico(visita)}</span>
               <small>{formatarData(visita.data)} · {visita.local || 'Local não informado'}</small></div>
-            <span className={`inicio-status ${visita.status}`}>{visita.status}</span>
+            <span className={`inicio-status ${visita.status}`}>{rotuloStatusVisita(visita.status)}</span>
           </div>)}</div>}
       </section>
     </div>

@@ -1,3 +1,4 @@
+import { rotuloStatusVisita } from '../utils/statusVisita';
 
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../database/database';
@@ -180,7 +181,7 @@ export default function PastaMedico({
                 <span
                   className={`inicio-status ${visita.status}`}
                 >
-                  {visita.status}
+                  {rotuloStatusVisita(visita.status)}
                 </span>
                 
 {visita.status !== 'cancelada' && (

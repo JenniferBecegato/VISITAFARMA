@@ -1,3 +1,11 @@
+import iconeHistorico from '../assets/menu/historico.svg';
+import iconeInicio from '../assets/menu/inicio.svg';
+import iconeAgenda from '../assets/menu/agenda.svg';
+import iconeMedicos from '../assets/menu/medicos.svg';
+import iconeSecretarias from '../assets/menu/secretarias.svg';
+import iconeFormularios from '../assets/menu/formularios.svg';
+import iconeProdutos from '../assets/menu/produtos.svg';
+import iconeRelatorios from '../assets/menu/relatorios.svg';
 
 import { useState, type ReactNode } from 'react';
 import './Layout.css';
@@ -12,7 +20,8 @@ export type Pagina =
   | 'secretarias'
   | 'formularios'
   | 'produtos'
-  | 'relatorios';
+  | 'relatorios'
+  | 'historico';
 
 interface LayoutProps {
   children: ReactNode;
@@ -28,13 +37,14 @@ const itensMenu: {
   titulo: string;
   icone: string;
 }[] = [
-  { id: 'inicio', titulo: 'Página inicial', icone: '⌂' },
-  { id: 'agenda', titulo: 'Agenda', icone: '▦' },
-  { id: 'medicos', titulo: 'Médicos', icone: '♙' },
-  { id: 'secretarias', titulo: 'Secretárias', icone: '♧' },
-  { id: 'formularios', titulo: 'Formulários', icone: '▤' },
-  { id: 'produtos', titulo: 'Produtos', icone: '◇' },
-  { id: 'relatorios', titulo: 'Relatórios', icone: '▥' }
+  { id: 'inicio', titulo: 'Minha Agenda', icone: iconeSecretarias },
+  { id: 'agenda', titulo: 'Calendário', icone: iconeAgenda },
+  { id: 'medicos', titulo: 'Médicos', icone: iconeMedicos },
+  { id: 'secretarias', titulo: 'Secretárias', icone: iconeInicio },
+  { id: 'formularios', titulo: 'Formulários', icone: iconeFormularios },
+  { id: 'produtos', titulo: 'Produtos', icone: iconeProdutos },
+  { id: 'relatorios', titulo: 'Relatórios', icone: iconeRelatorios },
+  { id: 'historico', titulo: 'Histórico', icone: iconeHistorico }
 ];
 
 export default function Layout({
@@ -100,7 +110,7 @@ export default function Layout({
               }
               onClick={() => mudarPagina(item.id)}
             >
-              <span className="app-menu-icone">{item.icone}</span>
+              <span className="app-menu-icone" aria-hidden="true"><img src={item.icone} alt="" /></span>
               <span>{item.titulo}</span>
             </button>
           ))}
@@ -108,6 +118,10 @@ export default function Layout({
       </aside>
 
       <main className="app-conteudo">
+        <div className="app-identificacao-mobile">
+          <span>{identificacao.nome} · Unidade {identificacao.unidade}</span>
+          <button type="button" onClick={() => void alterarIdentificacao()}>Alterar identificação</button>
+        </div>
         {backupMensagem && <p role="status">{backupMensagem}</p>}
         {children}
       </main>
@@ -121,7 +135,7 @@ export default function Layout({
             }
             onClick={() => mudarPagina(item.id)}
           >
-            <span className="app-menu-icone">{item.icone}</span>
+            <span className="app-menu-icone" aria-hidden="true"><img src={item.icone} alt="" /></span>
             <span>{item.titulo}</span>
           </button>
         ))}

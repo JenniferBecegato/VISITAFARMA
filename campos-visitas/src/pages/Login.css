@@ -12,3 +12,56 @@
 .login-card .login-nota { font-size: 12px; margin: 22px 0 0; }
 .login-card :focus-visible { outline: 3px solid #b49a60; outline-offset: 2px; }
 @media(max-width: 480px) { .login-pagina { padding: 16px; } .login-card { padding: 24px; } }
+
+/* O formulário começa após o símbolo, sem centralização que acrescente espaço acima. */
+@media (max-aspect-ratio: 1/1) {
+  .login-pagina {
+    background-position: left top;
+    background-size: 100% auto;
+    align-items: start;
+    padding-top: clamp(180px, 56.3vw, 576px);
+    padding-bottom: 32px;
+  }
+}
+
+/* Celulares: mantém o símbolo visível e reduz a altura do formulário. */
+@media (max-width: 480px) {
+  .login-pagina { padding: 16px; }
+  .login-card { padding: 20px; }
+  .login-marca { margin-bottom: 18px; }
+  .login-card h1 { font-size: 20px; margin-bottom: 8px; }
+  .login-card label { margin-top: 16px; }
+  .login-card button { margin-top: 20px; }
+  .login-card .login-nota { margin-top: 16px; }
+}
+@media (max-width: 480px) and (max-aspect-ratio: 1/1) {
+  .login-pagina { padding-top: clamp(150px, 50vw, 220px); padding-bottom: 24px; }
+}
+
+/* Mais respiro acima do login em celulares largos e altos, como o iPhone Pro Max. */
+@media (min-width: 421px) and (max-width: 480px) and (min-height: 850px) and (max-aspect-ratio: 1/1) {
+  .login-pagina { padding-top: calc(clamp(150px, 50vw, 220px) + 48px); }
+}
+
+/* Celular na horizontal: marca à esquerda e formulário à direita. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .login-pagina { padding: 16px 24px; }
+  .login-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    grid-template-rows: auto auto 1fr;
+    column-gap: 32px;
+    width: min(100%, 820px);
+    padding: 20px 28px;
+    border-radius: 18px;
+  }
+  .login-marca { grid-column: 1; grid-row: 1; align-self: end; margin: 12px 0 18px; }
+  .login-marca img { width: min(100%, 250px); }
+  .login-card h1 { grid-column: 1; grid-row: 2; font-size: 20px; margin: 0; }
+  .login-card form { grid-column: 2; grid-row: 1 / 4; align-self: center; }
+  .login-card label { margin-top: 12px; gap: 6px; font-size: 14px; }
+  .login-card label:first-child { margin-top: 0; }
+  .login-card input, .login-card select { min-height: 44px; padding: 10px; }
+  .login-card button { margin-top: 16px; min-height: 44px; }
+  .login-card .login-nota { grid-column: 1; grid-row: 3; align-self: start; margin: 14px 0 0; font-size: 11px; line-height: 1.5; }
+}

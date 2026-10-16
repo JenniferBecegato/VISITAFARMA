@@ -1,3 +1,4 @@
+import { rotuloStatusVisita } from '../utils/statusVisita';
 import { useState } from 'react';
 import type { Medico, Visita } from '../database/database';
 import { diasDoMes, visitasNaData } from '../utils/calendario';
@@ -29,9 +30,13 @@ export default function CalendarioVisitas({ visitas, medicos, selecionado, selec
           aria-pressed={dia === selecionado} onClick={() => selecionar(dia)} />
         <div className="calendario-dia-topo"><span className="calendario-numero">{Number(dia.slice(-2))}</span>
           <button type="button" className="calendario-agendar" aria-label={`Agendar visita em ${dia.split('-').reverse().join('/')}`} onClick={() => { selecionar(dia); agendar(dia); }}>+</button></div>
+        {visitasNaData(visitas, dia).length > 0 && <span className="calendario-resumo-mobile"
+          aria-label={`${visitasNaData(visitas, dia).length} ${visitasNaData(visitas, dia).length === 1 ? "visita" : "visitas"}`}>
+          {visitasNaData(visitas, dia).length}<span>{visitasNaData(visitas, dia).length === 1 ? "visita" : "visitas"}</span>
+        </span>}
         {visitasNaData(visitas, dia).map(v => <div className={`calendario-evento ${v.status}`} key={v.id}
-          title={`${v.horaInicio} · ${medicos.find(m => m.id === v.medicoId)?.nome ?? 'Médico'} · ${v.status}`}
-          ><span>{v.horaInicio}</span><strong className="calendario-evento-nome">{medicos.find(m => m.id === v.medicoId)?.nome ?? 'Médico não encontrado'}</strong><small>{v.status}</small></div>)}
+          title={`${v.horaInicio} · ${medicos.find(m => m.id === v.medicoId)?.nome ?? 'Médico'} · ${rotuloStatusVisita(v.status)}`}
+          ><span>{v.horaInicio}</span><strong className="calendario-evento-nome">{medicos.find(m => m.id === v.medicoId)?.nome ?? 'Médico não encontrado'}</strong><small>{rotuloStatusVisita(v.status)}</small></div>)}
       </div> : <div className="calendario-dia vazio" key={`vazio-${indice}`} />)}
     </div></div>
   </section>;

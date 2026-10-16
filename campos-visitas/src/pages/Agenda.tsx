@@ -1,3 +1,5 @@
+import { normalizarTexto } from '../utils/texto';
+import { rotuloStatusVisita } from '../utils/statusVisita';
 
 import { useRef, useState, type FormEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -9,7 +11,7 @@ import {
 
 import './Agenda.css';
 import CalendarioVisitas from '../components/CalendarioVisitas';
-import { salvarAgendamento } from '../database/visitas';
+import { alterarSituacaoVisita, salvarAgendamento } from '../database/visitas';
 
 const USUARIO_TESTE = 'usuario-local-teste';
 
@@ -29,7 +31,30 @@ function formatarData(data: string) {
 
 
 
-export default function Agenda({ visitaInicial, abrirPasta }: { visitaInicial?: Visita; abrirPasta: (medicoId: string) => void }) {
+export default function Agenda({ visitaInicial, abrirPasta, abrirRelatorio }: {
+  visitaInicial?: Visita;
+  abrirPasta: (medicoId: string) => void;
+  abrirRelatorio: (visita: Visita) => void;
+}) {
+  const travaSituacao = useRef(false);
+  const [atualizandoId, setAtualizandoId] = useState<string>();
+  const [erroSituacao, setErroSituacao] = useState('');
+
+  async function mudarSituacao(visita: Visita, status: 'realizada' | 'cancelada') {
+    if (travaSituacao.current) return;
+    if (!window.confirm(status === 'realizada' ? 'Marcar esta visita como realizada?' : 'Cancelar esta visita?')) return;
+    travaSituacao.current = true;
+    setAtualizandoId(visita.id);
+    setErroSituacao('');
+    try {
+      await alterarSituacaoVisita(USUARIO_TESTE, visita.id, status);
+    } catch (erro) {
+      setErroSituacao(erro instanceof Error ? erro.message : 'Não foi possível atualizar a visita.');
+    } finally {
+      travaSituacao.current = false;
+      setAtualizandoId(undefined);
+    }
+  }
   const travaSalvar = useRef(false);
   const [atualizadoEmEdicao, setAtualizadoEmEdicao] = useState(visitaInicial?.atualizadoEm);
   const [diaSelecionado, setDiaSelecionado] = useState(visitaInicial?.data ?? obterDataLocal());
@@ -44,6 +69,18 @@ export default function Agenda({ visitaInicial, abrirPasta }: { visitaInicial?: 
   const [horaInicio, setHoraInicio] = useState(visitaInicial?.horaInicio ?? '');
   const [horaFim, setHoraFim] = useState(visitaInicial?.horaFim ?? '');
   const [local, setLocal] = useState(visitaInicial?.local ?? '');
+  const [produtosAssuntos, setProdutosAssuntos] = useState(visitaInicial?.produtosAssuntos ?? '');
+  const [sugerirProdutos, setSugerirProdutos] = useState(false);
+  const produtos = useLiveQuery(() => db.produtos.where('usuarioId').equals(USUARIO_TESTE)
+    .filter(p => !p.excluidoEm && p.ativo).sortBy('nome'), []);
+  const termoProduto = normalizarTexto(produtosAssuntos.split(/[;,.]/).at(-1) ?? '');
+  const sugestoesProdutos = termoProduto ? (produtos ?? []).filter(p => normalizarTexto(p.nome).includes(termoProduto)).slice(0, 6) : [];
+  function selecionarProduto(nome: string) {
+    const partes = produtosAssuntos.split(/[;,.]/);
+    partes[partes.length - 1] = nome;
+    setProdutosAssuntos(partes.map(p => p.trim()).filter(Boolean).join('; '));
+    setSugerirProdutos(false);
+  }
   const [secretariaId, setSecretariaId] = useState(visitaInicial?.secretariaId ?? '');
   const secretarias = useLiveQuery(() => db.secretarias.where('usuarioId').equals(USUARIO_TESTE)
     .filter(s => !s.excluidoEm && (s.medicoIds ?? [s.medicoId]).includes(medicoId)).sortBy('nome'), [medicoId]);
@@ -60,24 +97,6 @@ export default function Agenda({ visitaInicial, abrirPasta }: { visitaInicial?: 
   );
 
   
-const [historicoVisitaId, setHistoricoVisitaId] =
-  useState<string | null>(null);
-
-const historicoReagendamentos = useLiveQuery(
-  () => db.historicoReagendamentos
-    .where('usuarioId')
-    .equals(USUARIO_TESTE)
-    .toArray(),
-  []
-);
-
-function alternarHistorico(visitaId: string) {
-  setHistoricoVisitaId(anterior =>
-    anterior === visitaId ? null : visitaId
-  );
-}
-
-
   const visitas = useLiveQuery(
     () => db.visitas
       .where('usuarioId')
@@ -109,6 +128,8 @@ function alternarHistorico(visitaId: string) {
     setHoraInicio('');
     setHoraFim('');
     setLocal('');
+    setProdutosAssuntos('');
+    setSugerirProdutos(false);
     setSecretariaId('');
     setObservacoes('');
     setEditandoId(null);
@@ -125,6 +146,8 @@ function alternarHistorico(visitaId: string) {
     setHoraInicio(visita.horaInicio);
     setHoraFim(visita.horaFim || '');
     setLocal(visita.local || '');
+    setProdutosAssuntos(visita.produtosAssuntos ?? '');
+    setSugerirProdutos(false);
     setSecretariaId(visita.secretariaId || '');
     setObservacoes(visita.observacoes || '');
     setErro('');
@@ -138,7 +161,7 @@ function alternarHistorico(visitaId: string) {
     if (travaSalvar.current) return;
     travaSalvar.current = true; setSalvando(true); setErro('');
     try {
-      await salvarAgendamento(USUARIO_TESTE, { medicoId, data, horaInicio, horaFim, local, secretariaId, observacoes },
+      await salvarAgendamento(USUARIO_TESTE, { medicoId, data, horaInicio, horaFim, local, secretariaId, observacoes, produtosAssuntos },
         editandoId ?? undefined, atualizadoEmEdicao);
       setDiaSelecionado(data); limparFormulario();
     } catch (error) {
@@ -231,6 +254,18 @@ function alternarHistorico(visitaId: string) {
                   onChange={e => setLocal(e.target.value)}
                 />
               </label>
+              <div className="agenda-produtos-campo">
+                <label>Produtos ou assuntos abordados na visita
+                  <input value={produtosAssuntos} autoComplete="off" aria-describedby="agenda-produtos-ajuda"
+                    onChange={e => { setProdutosAssuntos(e.target.value); setSugerirProdutos(true); }}
+                    onFocus={() => setSugerirProdutos(true)} onKeyDown={e => { if (e.key === 'Escape') setSugerirProdutos(false); }}
+                    placeholder="Digite um produto ou assunto" />
+                </label>
+                {sugerirProdutos && sugestoesProdutos.length > 0 && <div className="agenda-produtos-sugestoes" aria-label="Sugestões de produtos e assuntos">
+                  {sugestoesProdutos.map(p => <button key={p.id} type="button" onClick={() => selecionarProduto(p.nome)}>{p.nome}</button>)}
+                </div>}
+                <small id="agenda-produtos-ajuda">Separe os itens com ; , ou .</small>
+              </div>
             </div>
 
             <label>Secretária
@@ -274,6 +309,7 @@ function alternarHistorico(visitaId: string) {
         </section>
       )}
 
+      {erroSituacao && <p role="alert" className="medicos-erro">{erroSituacao}</p>}
       <CalendarioVisitas key={diaSelecionado.slice(0, 7)} visitas={visitas ?? []} medicos={medicos ?? []} selecionado={diaSelecionado}
         selecionar={setDiaSelecionado} agendar={dia => {
           limparFormulario(); setData(dia); setMostrarFormulario(true); window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -305,67 +341,26 @@ function alternarHistorico(visitaId: string) {
                   </small>
 
                   <span className={`inicio-status ${visita.status}`}>
-                    {visita.status}
+                    {rotuloStatusVisita(visita.status)}
                   </span>
                 </div>
 
-                <div className="agenda-item-acoes">
-                  <button type="button" disabled={visita.status === 'cancelada'} onClick={() => editarVisita(visita)}>Editar</button>
-                  <button type="button" className="agenda-botao-historico" aria-expanded={historicoVisitaId === visita.id}
-                    onClick={() => alternarHistorico(visita.id)}>
-                    {historicoVisitaId === visita.id ? 'Fechar histórico de reagendamento' : 'Histórico de reagendamento'}
-                  </button>
+                <div className="agenda-item-acoes" aria-busy={atualizandoId === visita.id}>
+                  {visita.status !== 'realizada' && visita.status !== 'cancelada' && <div className="agenda-acoes-linha">
+                    <button type="button" disabled={!!atualizandoId} className="agenda-botao-realizar"
+                      onClick={() => void mudarSituacao(visita, 'realizada')}>Realizado</button>
+                    <button type="button" disabled={!!atualizandoId} className="agenda-botao-cancelar"
+                      onClick={() => void mudarSituacao(visita, 'cancelada')}>Cancelar</button>
+                    <button type="button" disabled={!!atualizandoId} onClick={() => editarVisita(visita)}>Remarcar visita</button>
+                  </div>}
+                  <div className="agenda-acoes-linha">
+                    {visita.status !== 'realizada' && visita.status !== 'cancelada' &&
+                      <button type="button" disabled={!!atualizandoId} onClick={() => editarVisita(visita)}>Editar</button>}
+                    <button type="button" disabled={!!atualizandoId} className="agenda-botao-formulario"
+                      onClick={() => abrirRelatorio(visita)}>Formulário</button>
+                  </div>
                 </div>
                 
-{historicoVisitaId === visita.id && (
-  <div className="agenda-historico">
-    <h3>Histórico de reagendamentos</h3>
-
-    {(() => {
-      const registros = (historicoReagendamentos ?? [])
-        .filter(h => h.visitaId === visita.id)
-        .sort((a, b) =>
-          b.alteradoEm.localeCompare(a.alteradoEm)
-        );
-
-      if (registros.length === 0) {
-        return (
-          <p className="agenda-historico-vazio">
-            Nenhum reagendamento registrado.
-          </p>
-        );
-      }
-
-      return registros.map(registro => (
-        <div
-          key={registro.id}
-          className="agenda-historico-registro"
-        >
-          <span>
-            <strong>Antes:</strong>{' '}
-            {formatarData(registro.dataAnterior)}
-            {' às '}
-            {registro.horaAnterior}
-          </span>
-
-          <span>
-            <strong>Depois:</strong>{' '}
-            {formatarData(registro.dataNova)}
-            {' às '}
-            {registro.horaNova}
-          </span>
-
-          <small>
-            Alterado em:{' '}
-            {new Date(registro.alteradoEm)
-              .toLocaleString('pt-BR')}
-          </small>
-        </div>
-      ));
-    })()}
-  </div>
-)}
-
               </article>
             ))}
           </div>

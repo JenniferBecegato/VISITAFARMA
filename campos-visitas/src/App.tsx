@@ -1,5 +1,8 @@
+import Historico from './pages/Historico';
+import { atualizarVisitasRemarcadas } from './database/visitas';
+import { dataLocal } from './utils/relatorios';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import Layout, { type Pagina } from './components/Layout';
 
@@ -52,6 +55,22 @@ function App() {
 
   const [visitaEdicao, setVisitaEdicao] = useState<Visita>();
   const [erroNavegacao, setErroNavegacao] = useState('');
+  useEffect(() => {
+    const atualizar = () => {
+      void atualizarVisitasRemarcadas('usuario-local-teste', dataLocal())
+        .catch(() => setErroNavegacao('Não foi possível atualizar as visitas remarcadas. Atualize a página para tentar novamente.'));
+    };
+    atualizar();
+    const timer = window.setInterval(atualizar, 30000);
+    window.addEventListener('focus', atualizar);
+    document.addEventListener('visibilitychange', atualizar);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', atualizar);
+      document.removeEventListener('visibilitychange', atualizar);
+    };
+  }, []);
+
 
   async function prepararBackup() {
     return saidaFormularioRef.current ? saidaFormularioRef.current() : true;
@@ -136,7 +155,7 @@ function App() {
         return <Inicio nomeUsuario={identificacao?.nome ?? ''} unidade={identificacao?.unidade ?? ''} editarVisita={editarVisita} abrirRelatorio={abrirRelatorio} abrirPasta={abrirPastaMedico} />;
 
       case 'agenda':
-        return <Agenda key={visitaEdicao?.id ?? 'agenda'} visitaInicial={visitaEdicao} abrirPasta={abrirPastaMedico} />;
+        return <Agenda key={visitaEdicao?.id ?? 'agenda'} visitaInicial={visitaEdicao} abrirPasta={abrirPastaMedico} abrirRelatorio={abrirRelatorio} />;
 
       case 'medicos':
         if (medicoSelecionadoId) {
@@ -159,6 +178,9 @@ function App() {
 
       case 'produtos':
         return <Produtos />;
+
+      case 'historico':
+        return <Historico />;
 
       case 'relatorios':
         return <Relatorios />;

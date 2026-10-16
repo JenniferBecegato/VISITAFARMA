@@ -110,6 +110,9 @@ export interface Visita {
   local?: string;
   secretariaId?: string;
 
+  produtosAssuntos?: string;
+  produtoAssuntoIds?: string[];
+
   status: StatusVisita;
   observacoes?: string;
 

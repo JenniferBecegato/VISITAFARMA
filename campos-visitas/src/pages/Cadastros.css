@@ -6,3 +6,8 @@
 .cadastros-pagina button:disabled { opacity: .6; cursor: wait; }
 .cadastros-pagina [role="status"] { color: #167448; background: #e2f6e9; padding: 14px; border-radius: 10px; }
 .cadastros-pagina .medicos-info { overflow-wrap: anywhere; white-space: pre-line; }
+
+.produtos-lista-topo { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.produtos-lista-topo h2 { margin-bottom: 0; }
+.produtos-lista-topo label { margin: 0; min-width: 120px; }
+.produto-observacoes { grid-column: 1 / -1; }
