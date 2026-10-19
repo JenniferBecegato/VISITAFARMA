@@ -333,3 +333,12 @@
   .inicio-visita > .inicio-acoes-visita { grid-column: 1 / -1; align-items: flex-start; max-width: none; }
   .inicio-acoes-linha { justify-content: flex-start; }
 }
+
+.inicio-status { display:inline-flex; align-items:center; justify-content:center; width:max-content; max-width:100%; box-sizing:border-box; flex-shrink:0; justify-self:start; line-height:1.4; }
+@media(max-width:650px) {
+  .inicio-visita > .inicio-status { grid-column:1 / -1; }
+}
+
+@media (min-width:651px) and (max-width:1100px) {
+  .inicio-visita > .inicio-status { grid-column:1 / -1; justify-self:start; width:max-content; max-width:100%; }
+}

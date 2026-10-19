@@ -9,7 +9,7 @@ import iconeRelatorios from '../assets/menu/relatorios.svg';
 
 import { useState, type ReactNode } from 'react';
 import './Layout.css';
-import logoCampos from '../assets/logo-campos.png';
+
 import type { Identificacao } from '../services/identificacao';
 import { exportarBackup } from '../services/backup';
 
@@ -68,7 +68,6 @@ export default function Layout({
     <div className="app-layout">
       <header className="app-cabecalho">
         <div className="app-marca">
-          <div className="app-logo"><img src={logoCampos} alt="Símbolo da Farmácia Campos" /></div>
 
           <div>
             <strong>CAMPOS VISITAS</strong>
@@ -77,16 +76,6 @@ export default function Layout({
         </div>
 
         <div className="app-cabecalho-direita">
-          <button title="Baixar uma cópia dos dados deste aparelho em arquivo JSON" className="app-backup" type="button" disabled={exportando} onClick={async () => {
-            setExportando(true); setBackupMensagem('');
-            try {
-              if (!await prepararBackup()) throw new Error('Salvamento pendente');
-              await exportarBackup('usuario-local-teste'); setBackupMensagem('Backup exportado. Guarde o arquivo em um local seguro.'); }
-            catch { setBackupMensagem('Erro ao exportar o backup. Tente novamente.'); }
-            finally { setExportando(false); }
-          }}>{exportando ? 'Exportando...' : 'Exportar backup'}</button>
-          <button className="app-conta" type="button" title="Alterar nome ou unidade" onClick={() => void alterarIdentificacao()}>{identificacao.nome}</button>
-          <span className="app-status">● Modo local</span>
 
           <button
             className="app-botao-menu"
@@ -99,8 +88,15 @@ export default function Layout({
       </header>
 
       <aside className={`app-menu-lateral ${menuAberto ? 'aberto' : ''}`}>
-        <div className="app-identificacao"><strong>{identificacao.nome}</strong><small>Unidade {identificacao.unidade}</small>
-          <button type="button" onClick={() => void alterarIdentificacao()}>Alterar identificação</button></div>
+        <div className="app-identificacao"><button className="app-identificacao-link" type="button" title="Alterar identificação" onClick={() => void alterarIdentificacao()}>{identificacao.nome}</button></div>
+          <button title="Baixar uma cópia dos dados deste aparelho em arquivo JSON" className="app-backup" type="button" disabled={exportando} onClick={async () => {
+            setExportando(true); setBackupMensagem('');
+            try {
+              if (!await prepararBackup()) throw new Error('Salvamento pendente');
+              await exportarBackup('usuario-local-teste'); setBackupMensagem('Backup exportado. Guarde o arquivo em um local seguro.'); }
+            catch { setBackupMensagem('Erro ao exportar o backup. Tente novamente.'); }
+            finally { setExportando(false); }
+          }}>{exportando ? 'Exportando...' : 'Exportar backup'}</button>
         <nav aria-label="Menu principal">
           {itensMenu.map(item => (
             <button
@@ -119,8 +115,7 @@ export default function Layout({
 
       <main className="app-conteudo">
         <div className="app-identificacao-mobile">
-          <span>{identificacao.nome} · Unidade {identificacao.unidade}</span>
-          <button type="button" onClick={() => void alterarIdentificacao()}>Alterar identificação</button>
+          <button className="app-identificacao-link" type="button" title="Alterar identificação" onClick={() => void alterarIdentificacao()}>{identificacao.nome}</button>
         </div>
         {backupMensagem && <p role="status">{backupMensagem}</p>}
         {children}

@@ -233,3 +233,28 @@
 .formulario-produto strong { flex: 1; min-width: 130px; overflow-wrap: anywhere; }
 .formulario-produto button { min-height: 44px; padding: 10px; }
 .pagina-temporaria:has(progress) .formulario-produto label { margin: 0; }
+
+.formulario-conteudo { border:0; padding:0; margin:0; min-width:0; }
+.formulario-conteudo:disabled input, .formulario-conteudo:disabled textarea, .formulario-conteudo:disabled select { opacity:1; color:#263750; -webkit-text-fill-color:#263750; background:#f5f7fa; cursor:default; }
+.formulario-consulta-topo { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:20px; }
+.formulario-consulta-topo button { border:1px solid #d9e1ed; background:white; color:#0758bd; border-radius:8px; padding:10px 18px; min-height:42px; cursor:pointer; }
+.formulario-consulta-topo .medicos-botao-principal { background:#0758bd; color:white; }
+
+.pagina-temporaria:has(progress) .formulario-acoes-edicao { justify-content:flex-end; }
+.formulario-consulta-topo button:disabled { background:#e5e7eb; color:#808793; border-color:#d6d9df; cursor:not-allowed; }
+.formulario-confirmacao-fundo { position:fixed; inset:0; z-index:1000; display:grid; place-items:center; background:#102d6070; padding:20px; }
+.formulario-confirmacao { width:100%; max-width:520px; box-sizing:border-box; background:white; padding:28px; border-radius:16px; box-shadow:0 16px 60px #102d6030; }
+.formulario-confirmacao h2 { margin:0 0 12px; color:#102d60; font-size:20px; }
+.formulario-confirmacao p { color:#52647d; }
+.formulario-confirmacao-acoes { display:flex; justify-content:flex-end; flex-wrap:wrap; gap:10px; margin-top:24px; }
+.formulario-confirmacao-acoes button { min-height:42px; padding:10px 14px; border:1px solid #d9e1ed; border-radius:8px; background:white; color:#0758bd; cursor:pointer; }
+.formulario-confirmacao-acoes .medicos-botao-principal { background:#0758bd; color:white; }
+
+@media(max-width:650px) {
+  .pagina-temporaria:has(progress) .medicos-acoes { display:flex; flex-direction:row; flex-wrap:nowrap; gap:12px; align-items:center; }
+  .pagina-temporaria:has(progress) .medicos-acoes > button { flex:1 1 0; width:auto; min-width:0; margin:0; }
+  .pagina-temporaria:has(progress) .formulario-acoes-edicao > button { flex:0 1 auto; }
+  .formulario-confirmacao { padding:20px 14px; }
+  .formulario-confirmacao-acoes { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+  .formulario-confirmacao-acoes button { width:100%; min-width:0; padding:8px 5px; font-size:11px; white-space:normal; overflow-wrap:normal; }
+}

@@ -1,3 +1,5 @@
+import { formulariosPorData } from '../utils/formularios';
+import './PastaMedico.css';
 import { rotuloStatusVisita } from '../utils/statusVisita';
 
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -76,7 +78,7 @@ export default function PastaMedico({
     visitas === undefined ||
     formularios === undefined
   ) {
-    return <div className="medicos-pagina">Carregando...</div>;
+    return <div className="medicos-pagina pasta-medico">Carregando...</div>;
   }
 
   if (
@@ -85,13 +87,14 @@ export default function PastaMedico({
     medico.excluidoEm
   ) {
     return (
-      <div className="medicos-pagina">
+      <div className="medicos-pagina pasta-medico">
         <p>Médico não encontrado.</p>
         <button onClick={voltar}>Voltar</button>
       </div>
     );
   }
 
+  const formulariosOrdenados = formulariosPorData(formularios, visitas);
   const visitasOrdenadas = [...visitas].sort((a, b) =>
     `${b.data}T${b.horaInicio}`.localeCompare(
       `${a.data}T${a.horaInicio}`
@@ -99,7 +102,7 @@ export default function PastaMedico({
   );
 
   return (
-    <div className="medicos-pagina">
+    <div className="medicos-pagina pasta-medico">
       <button
         onClick={voltar}
         style={{
@@ -155,8 +158,8 @@ export default function PastaMedico({
         </div>
       </div>
 
-      <section className="medicos-card">
-        <h2>Histórico de visitas</h2>
+      <details className="medicos-card pasta-historico">
+        <summary><h2>Histórico de visitas</h2><span className="pasta-historico-seta" aria-hidden="true">⌄</span></summary>
 
         {visitasOrdenadas.length === 0 ? (
           <p className="medicos-vazio">
@@ -166,7 +169,7 @@ export default function PastaMedico({
           <div className="inicio-lista">
             {visitasOrdenadas.map(visita => (
               <div
-                className="inicio-visita"
+                className="pasta-linha pasta-visita"
                 key={visita.id}
               >
                 <strong>{visita.horaInicio}</strong>
@@ -200,11 +203,11 @@ export default function PastaMedico({
       );
     }}
   >
-    {formularios.some(
+    {visita.status === 'realizada' ? 'Formulário' : formularios.some(
       formulario => formulario.visitaId === visita.id
     )
       ? 'Editar relatório'
-      : 'Preencher relatório'}
+      : 'Preencher formulário'}
   </button>
 )}
 
@@ -212,34 +215,30 @@ export default function PastaMedico({
             ))}
           </div>
         )}
-      </section>
+      </details>
 
       <section className="medicos-card">
         <h2>Formulários de visitas</h2>
 
-        {formularios.length === 0 ? (
+        {formulariosOrdenados.length === 0 ? (
           <p className="medicos-vazio">
             Nenhum formulário preenchido.
           </p>
         ) : (
-          formularios.map(formulario => (
+          formulariosOrdenados.map(({ formulario, data }) => (
             <div
               key={formulario.id}
-              className="inicio-visita"
+              className="pasta-linha pasta-formulario"
             >
               <div>
                 <span>
-                  {new Date(
-                    formulario.criadoEm
-                  ).toLocaleDateString('pt-BR')}
+                  {formatarData(data)}
                 </span>
 
-                <small>{formulario.temaTrabalhado}</small>
+
               </div>
 
-              <span className="inicio-status agendada">
-                {formulario.status}
-              </span>
+
               
 <button
   type="button"
@@ -250,7 +249,7 @@ export default function PastaMedico({
     formulario.id
   )}
 >
-  Abrir / Editar
+  Formulário
 </button>
 
             </div>

@@ -56,13 +56,21 @@ export default function Relatorios() {
       <section className="medicos-card"><h2>Produtos e assuntos abordados nas visitas</h2>
         {resumo.produtos.length ? <div className="relatorios-tabela"><table><thead><tr><th>Produto / assunto</th><th>Médicos</th><th>Amostras</th></tr></thead>
           <tbody>{resumo.produtos.map(p => <tr key={p.nome}><td>{p.nome} ({p.visitas})</td><td>{p.medicos.join(", ")}</td><td>{p.amostras}</td></tr>)}</tbody></table></div> : <p className="relatorios-lista-vazia">Nenhum produto na lista</p>}</section>
+      <section className="medicos-card"><h2>Total de visitas realizadas por médico</h2>
+        <p>Conta apenas visitas com status realizada, em todo o histórico, independentemente do período selecionado. Registros excluídos não entram na contagem.</p>
+        {resumo.visitasPorMedico.length ? <div className="relatorios-tabela"><table>
+          <thead><tr><th>Médico</th><th>Especialidade</th><th>Total de visitas realizadas</th></tr></thead>
+          <tbody>{resumo.visitasPorMedico.map(item => <tr key={item.medico.id}>
+            <td>{item.medico.nome}</td><td>{item.medico.especialidade || 'Não informada'}</td><td>{item.totalRealizadas}</td>
+          </tr>)}</tbody>
+        </table></div> : <p className="relatorios-lista-vazia">Nenhum médico na lista.</p>}</section>
       <section className="medicos-card"><h2>Médicos sem visita realizada há mais de 60 dias</h2>
         <p>Considera todo o histórico até hoje, independentemente do filtro acima.</p>
-        {resumo.semVisita.length ? <div className="relatorios-tabela"><table>
-          <thead><tr><th>Data da última visita</th><th>Médico</th><th>Produto / assunto abordado</th></tr></thead>
+        {resumo.semVisita.length ? <div className="relatorios-tabela relatorios-sem-visita"><table>
+          <thead><tr><th>Data da última visita</th><th>Médico</th><th>Produto / assunto abordado</th><th>Dias sem receber visita</th></tr></thead>
           <tbody>{resumo.semVisita.map(item => <tr key={item.medico.id}>
             <td>{item.ultima ? formatar(item.ultima) : 'Sem visita realizada'}</td>
-            <td>{item.medico.nome}</td><td>{item.produtosAssuntos || 'Não informado'}</td>
+            <td>{item.medico.nome}</td><td>{item.produtosAssuntos || 'Não informado'}</td><td>{item.diasSemVisita === undefined ? 'Nunca visitado' : item.diasSemVisita}</td>
           </tr>)}</tbody>
         </table></div> : <p className="relatorios-lista-vazia">Nenhum médico na lista.</p>}</section>
     </>}

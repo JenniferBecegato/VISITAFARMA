@@ -14,6 +14,15 @@ export function calcularRelatorio(medicos: Medico[], visitas: Visita[], produtos
   const realizadas = periodo.filter(v => v.status === 'realizada');
   const idsRealizadas = new Set(realizadas.map(v => v.id));
   const medicosAtivos = medicos.filter(m => !m.excluidoEm);
+  const totaisPorMedico = new Map<string, number>();
+  for (const visita of ativas) {
+    if (visita.status === 'realizada') {
+      totaisPorMedico.set(visita.medicoId, (totaisPorMedico.get(visita.medicoId) ?? 0) + 1);
+    }
+  }
+  const visitasPorMedico = medicosAtivos.map(medico => ({
+    medico, totalRealizadas: totaisPorMedico.get(medico.id) ?? 0
+  })).sort((a, b) => b.totalRealizadas - a.totalRealizadas || a.medico.nome.localeCompare(b.medico.nome, 'pt-BR'));
   const especialidades = new Map<string, number>();
   for (const visita of realizadas) {
     const especialidade = medicos.find(m => m.id === visita.medicoId)?.especialidade ?? 'Não informada';
@@ -71,7 +80,8 @@ export function calcularRelatorio(medicos: Medico[], visitas: Visita[], produtos
         [f.produtosAbordados, f.temaTrabalhado].filter(Boolean).join(';').split(/[;,.\n]/).forEach(adicionar);
       });
     }
-    return { medico: m, ultima: visita?.data, produtosAssuntos: [...nomes.values()].join('; ') };
+    const diasSemVisita = visita ? Math.round((Date.parse(dataLocal(hoje)) - Date.parse(visita.data)) / 86400000) : undefined;
+    return { medico: m, ultima: visita?.data, diasSemVisita, produtosAssuntos: [...nomes.values()].join('; ') };
   }).filter(item => !item.ultima || item.ultima < limite);
   return {
     periodo: periodo.sort((a, b) => `${b.data} ${b.horaInicio}`.localeCompare(`${a.data} ${a.horaInicio}`)),
@@ -85,6 +95,7 @@ export function calcularRelatorio(medicos: Medico[], visitas: Visita[], produtos
         .sort((a, b) => a.localeCompare(b, 'pt-BR'));
       return { nome: p.nome, visitas: p.visitas.size, medicos: nomesMedicos, amostras: p.amostras };
     }).sort((a, b) => b.visitas - a.visitas),
+    visitasPorMedico,
     semVisita
   };
 }

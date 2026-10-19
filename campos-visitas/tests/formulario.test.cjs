@@ -14,7 +14,8 @@ function setup() {
   let gate;
   const states = {};
   const context = {
-    useCallback: fn => fn, carregando: false, erroCarregamento: false,
+    gravarRetornoDoFormulario: async () => {},
+    consultaCompleta: false, useCallback: fn => fn, carregando: false, erroCarregamento: false,
     idAtual: 'f', medicoId: 'm', visitaId: 'v', USUARIO_TESTE: 'u',
     dadosRef: { current: { nomeMedico: 'Inicial', status: 'rascunho' } },
     criadoEmRef: { current: 'criacao' }, versaoRef: { current: 0 },
@@ -60,4 +61,18 @@ test('fila do formulário preserva edição recente, finalização, recuperaçã
   assert.equal(await t.c.leave(), true);
   assert.equal(t.stored().nomeMedico, 'Antes de sair');
   t.fail(); assert.equal(await t.c.leave(), false);
+});
+
+test('consulta não grava ao abrir ou sair e exige salvar alterações antes de voltar', async () => {
+  const t = setup();
+  t.c.consultaCompleta = true;
+  assert.equal(await t.c.leave(), true);
+  assert.equal(t.stored(), undefined);
+  t.c.dadosRef.current.nomeMedico = 'Alterado';
+  t.c.versaoRef.current = 1;
+  assert.equal(await t.c.leave(), false);
+  assert.equal(t.stored(), undefined);
+  assert.equal(await t.c.save(false), true);
+  assert.equal(t.stored().nomeMedico, 'Alterado');
+  assert.equal(await t.c.leave(), true);
 });

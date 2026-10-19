@@ -92,6 +92,7 @@ export async function gravarSecretariasDoMedico(usuarioId: string, medicoId: str
     if (ids.includes(id)) throw new Error('Selecione secretárias diferentes.');
     ids.push(id);
     await db.secretarias.put({ ...anterior, id, usuarioId, nome: nomes[indice],
+      telefone: anterior?.telefone?.trim() || medico.telefone?.trim(),
       medicoId: anterior?.medicoId || medicoId, medicoIds: [...new Set([...(anterior?.medicoIds ?? (anterior ? [anterior.medicoId] : [])), medicoId])],
       criadoEm: anterior?.criadoEm ?? agora, atualizadoEm: agora, sincronizacao: 'pendente' });
   }
@@ -103,4 +104,28 @@ export async function gravarSecretariasDoMedico(usuarioId: string, medicoId: str
     }
   }
   await db.medicos.update(medicoId, { secretariaId: ids[0], secretariaIds: ids });
+}
+
+// Executar na transação que salva o formulário e as visitas.
+export async function gravarRetornoDoFormulario(
+  formulario: import('./database').FormularioVisita,
+  origem: import('./database').Visita,
+  anterior?: import('./database').FormularioVisita
+) {
+  const data = formulario.dataProximoRetorno;
+  const horaInicio = formulario.horaProximoRetorno;
+  if (!data || !horaInicio || origem.excluidoEm || origem.status === 'cancelada') return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(horaInicio)) return;
+  const id = `retorno-formulario-${formulario.id}`;
+  const retorno = await db.visitas.get(id);
+  if (retorno && (retorno.usuarioId !== formulario.usuarioId || retorno.medicoId !== formulario.medicoId ||
+    retorno.excluidoEm || retorno.status === 'realizada' || retorno.status === 'cancelada')) return;
+  if (retorno && anterior?.dataProximoRetorno === data && anterior?.horaProximoRetorno === horaInicio) return;
+  const agora = dataAtual();
+  await db.visitas.put({ ...retorno, id, usuarioId: formulario.usuarioId, medicoId: formulario.medicoId,
+    data, horaInicio, horaFim: undefined, local: retorno?.local ?? formulario.localClinica ?? origem.local,
+    secretariaId: retorno?.secretariaId ?? origem.secretariaId,
+    observacoes: retorno?.observacoes ?? 'Retorno previsto no formulário de visita.',
+    status: retorno?.status ?? 'agendada', criadoEm: retorno?.criadoEm ?? agora,
+    atualizadoEm: agora, sincronizacao: 'pendente', statusGoogle: 'pendente' });
 }

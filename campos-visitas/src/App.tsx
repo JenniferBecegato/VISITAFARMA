@@ -144,6 +144,7 @@ function App() {
           medicoId={formularioSelecionado.medicoId}
           visitaId={formularioSelecionado.visitaId}
           formularioId={formularioSelecionado.formularioId}
+          consultaCompleta={Boolean(formularioSelecionado.formularioId)}
           voltar={voltarParaPasta}
           registrarSaida={registrarSaida}
         />

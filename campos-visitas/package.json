@@ -8,7 +8,9 @@
     "build": "tsc -b && vite build --configLoader native",
     "lint": "eslint .",
     "test": "node --test --test-isolation=none tests/*.test.cjs",
-    "preview": "vite preview --configLoader native"
+    "prepreview": "npm run build",
+    "preview": "vite preview --configLoader native",
+    "start": "npm run preview"
   },
   "dependencies": {
     "dexie": "^4.4.6",

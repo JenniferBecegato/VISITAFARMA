@@ -9,7 +9,7 @@ import {
 
 import './FormularioVisita.css';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { gravarProdutosDaVisita } from '../database/catalogos';
+import { gravarProdutosDaVisita, gravarRetornoDoFormulario } from '../database/catalogos';
 
 const USUARIO_TESTE = 'usuario-local-teste';
 
@@ -29,6 +29,7 @@ interface Props {
   medicoId: string;
   visitaId: string;
   formularioId?: string;
+  consultaCompleta?: boolean;
   voltar: () => void;
   registrarSaida: (salvar: (() => Promise<boolean>) | null) => void;
 }
@@ -62,12 +63,15 @@ export default function FormularioVisita({
   visitaId,
   formularioId,
   voltar,
-  registrarSaida
+  registrarSaida,
+  consultaCompleta = false
 }: Props) {
   const produtos = useLiveQuery(() => db.produtos.where('usuarioId').equals(USUARIO_TESTE)
     .filter(p => p.ativo && !p.excluidoEm).sortBy('nome'), []);
   const secretarias = useLiveQuery(() => db.secretarias.where('usuarioId').equals(USUARIO_TESTE)
     .filter(s => !s.excluidoEm && (s.medicoIds ?? [s.medicoId]).includes(medicoId)).sortBy('nome'), [medicoId]);
+  const [editandoConsulta, setEditandoConsulta] = useState(false);
+  const [confirmarVolta, setConfirmarVolta] = useState(false);
   const [pagina, setPagina] = useState(1);
   const [dados, setDados] = useState<DadosFormulario>(
     dadosIniciais
@@ -115,7 +119,9 @@ export default function FormularioVisita({
 
         const formularioExistente = formularioId
           ? await db.formularios.get(formularioId)
-          : undefined;
+          : (await db.formularios.where('visitaId').equals(visitaId)
+            .filter(f => f.usuarioId === USUARIO_TESTE && !f.excluidoEm).toArray())
+            .sort((a, b) => b.atualizadoEm.localeCompare(a.atualizadoEm))[0];
 
         if (formularioId && (
           !formularioExistente ||
@@ -224,6 +230,7 @@ const salvar = useCallback((finalizar = false): Promise<boolean> => {
         sincronizacao: 'pendente'
       };
       await db.formularios.put(formulario);
+      await gravarRetornoDoFormulario(formulario, visita, existente);
       if (campos.produtosSelecionados !== undefined) {
         await gravarProdutosDaVisita(USUARIO_TESTE, visitaId, campos.produtosSelecionados);
       }
@@ -260,12 +267,16 @@ const salvar = useCallback((finalizar = false): Promise<boolean> => {
 const salvarAntesDeSair = useCallback(async () => {
   if (carregando) return false;
   if (erroCarregamento) return true;
+  if (consultaCompleta) {
+    if (versaoRef.current !== versaoSalvaRef.current) { setMensagem('Salve as alterações antes de sair.'); return false; }
+    return true;
+  }
   // Repete se houve digitação enquanto a transação estava em andamento.
   do {
     if (!await salvar()) return false;
   } while (versaoRef.current !== versaoSalvaRef.current);
   return true;
-}, [carregando, erroCarregamento, salvar]);
+}, [carregando, erroCarregamento, salvar, consultaCompleta]);
 
 useEffect(() => {
   registrarSaida(salvarAntesDeSair);
@@ -273,10 +284,10 @@ useEffect(() => {
 }, [registrarSaida, salvarAntesDeSair]);
 
 useEffect(() => {
-  if (carregando || !alterado) return;
+  if (consultaCompleta || carregando || !alterado) return;
   const temporizador = window.setTimeout(() => { void salvar(); }, 1000);
   return () => window.clearTimeout(temporizador);
-}, [dados, carregando, alterado, salvar]);
+}, [dados, carregando, alterado, salvar, consultaCompleta]);
 
 useEffect(() => {
   const antesDeFechar = (evento: BeforeUnloadEvent) => {
@@ -286,7 +297,7 @@ useEffect(() => {
     }
   };
   const aoOcultar = () => {
-    if (document.visibilityState === 'hidden' && versaoRef.current !== versaoSalvaRef.current) {
+    if (!consultaCompleta && document.visibilityState === 'hidden' && versaoRef.current !== versaoSalvaRef.current) {
       void salvar();
     }
   };
@@ -296,71 +307,7 @@ useEffect(() => {
     window.removeEventListener('beforeunload', antesDeFechar);
     document.removeEventListener('visibilitychange', aoOcultar);
   };
-}, [salvar]);
-
-function validarFormulario(): boolean {
-  const campos = dadosRef.current;
-
-  const obrigatorio = (valor?: string) =>
-    Boolean(valor?.trim());
-
-  if (
-    !obrigatorio(campos.representante) ||
-    !obrigatorio(campos.localClinica)
-  ) {
-    setPagina(1);
-    setMensagem(
-      'Preencha os campos obrigatórios das informações iniciais.'
-    );
-    return false;
-  }
-
-  if (
-    !obrigatorio(campos.nomeMedico) ||
-    !obrigatorio(campos.especialidade)
-  ) {
-    setPagina(2);
-    setMensagem(
-      'Preencha o nome e a especialidade do médico.'
-    );
-    return false;
-  }
-
-  if (
-    !obrigatorio(campos.temaTrabalhado) ||
-    (!obrigatorio(campos.produtosAbordados) && !campos.produtosSelecionados?.length) ||
-    (!obrigatorio(campos.amostrasDeixadas) && !campos.produtosSelecionados?.some(p => p.quantidadeAmostras > 0))
-  ) {
-    setPagina(3);
-    setMensagem(
-      'Preencha tema trabalhado, produtos abordados e amostras deixadas.'
-    );
-    return false;
-  }
-
-  if (!campos.nivelInteresse) {
-    setPagina(4);
-    setMensagem('Selecione o nível de interesse.');
-    return false;
-  }
-
-  if (campos.proximaVisitaAgendada === undefined) {
-    setPagina(5);
-    setMensagem(
-      'Informe se a próxima visita já ficou agendada.'
-    );
-    return false;
-  }
-
-  if (!obrigatorio(campos.nomeSecretaria)) {
-    setPagina(6);
-    setMensagem('Informe o nome da secretária.');
-    return false;
-  }
-
-  return true;
-}
-
+}, [salvar, consultaCompleta]);
 
   async function avancar() {
     const sucesso = await salvar(false);
@@ -384,9 +331,13 @@ function validarFormulario(): boolean {
 
   return (
     <div className="pagina-temporaria">
+      {consultaCompleta && <div className="formulario-consulta-topo">
+        <button type="button" disabled={salvando} onClick={() => { if (versaoRef.current !== versaoSalvaRef.current) setConfirmarVolta(true); else voltar(); }}>← Voltar</button>
+        {!erroCarregamento && <button type="button" disabled={editandoConsulta || salvando} className="medicos-botao-principal" onClick={() => { setEditandoConsulta(true); setMensagem(''); }}>Editar</button>}
+      </div>}
       <h1>Relatório de Visita Médica</h1>
 
-      <p>Página {pagina} de 6</p>
+      {!consultaCompleta && <p>Página {pagina} de 6</p>}
       {estadoSalvamento !== 'inicial' && (
         <p role="status" aria-live="polite" className={`salvamento-${estadoSalvamento}`}>
           {estadoSalvamento === 'salvando' ? 'Salvando...' :
@@ -394,18 +345,19 @@ function validarFormulario(): boolean {
         </p>
       )}
 
-      <progress
+      <progress hidden={consultaCompleta}
         value={pagina}
         max={6}
         style={{ width: '100%', marginBottom: 20 }}
       />
 
-      {!erroCarregamento && pagina === 1 && (
+      <fieldset className="formulario-conteudo" disabled={salvando || (consultaCompleta && !editandoConsulta)}>
+      {!erroCarregamento && (consultaCompleta || pagina === 1) && (
         <section className="medicos-card">
           <h2>Informações iniciais</h2>
 
           <label>
-            Representante *
+            Representante
             <select
               value={dados.representante}
               onChange={e => alterar(
@@ -419,7 +371,7 @@ function validarFormulario(): boolean {
           </label>
 
           <label>
-            Local / Clínica *
+            Local / Clínica
             <input
               value={dados.localClinica}
               onChange={e => alterar(
@@ -431,12 +383,12 @@ function validarFormulario(): boolean {
         </section>
       )}
 
-      {!erroCarregamento && pagina === 2 && (
+      {!erroCarregamento && (consultaCompleta || pagina === 2) && (
         <section className="medicos-card">
           <h2>Dados do médico</h2>
 
           <label>
-            Nome do médico *
+            Nome do médico
             <input
               value={dados.nomeMedico}
               onChange={e => alterar(
@@ -447,7 +399,7 @@ function validarFormulario(): boolean {
           </label>
 
           <label>
-            Especialidade *
+            Especialidade
             <input
               value={dados.especialidade}
               onChange={e => alterar(
@@ -477,7 +429,7 @@ function validarFormulario(): boolean {
         </section>
       )}
 
-      {!erroCarregamento && pagina === 3 && (
+      {!erroCarregamento && (consultaCompleta || pagina === 3) && (
         <section className="medicos-card">
           <h2>Conteúdo da visita</h2>
           <label>Adicionar produto do catálogo
@@ -504,7 +456,7 @@ function validarFormulario(): boolean {
           <p>Você também pode informar outros produtos e amostras nos campos abaixo. Se não deixou amostras, escreva “Nenhuma”.</p>
 
           <label>
-            Tema trabalhado *
+            Tema trabalhado
             <textarea
               value={dados.temaTrabalhado}
               onChange={e => alterar(
@@ -515,7 +467,7 @@ function validarFormulario(): boolean {
           </label>
 
           <label>
-            Produtos abordados *
+            Produtos abordados
             <textarea
               value={dados.produtosAbordados}
               onChange={e => alterar(
@@ -526,7 +478,7 @@ function validarFormulario(): boolean {
           </label>
 
           <label>
-            Amostras deixadas (produto e quantidade) *
+            Amostras deixadas (produto e quantidade)
             <textarea
               value={dados.amostrasDeixadas}
               onChange={e => alterar(
@@ -549,12 +501,12 @@ function validarFormulario(): boolean {
         </section>
       )}
 
-      {!erroCarregamento && pagina === 4 && (
+      {!erroCarregamento && (consultaCompleta || pagina === 4) && (
         <section className="medicos-card">
           <h2>Feedback e receptividade</h2>
 
           <label>
-            Nível de interesse *
+            Nível de interesse
             <select
               value={dados.nivelInteresse || ''}
               onChange={e => alterar(
@@ -595,7 +547,7 @@ function validarFormulario(): boolean {
         </section>
       )}
 
-      {!erroCarregamento && pagina === 5 && (
+      {!erroCarregamento && (consultaCompleta || pagina === 5) && (
         <section className="medicos-card">
           <h2>Próximos passos e planos de ação</h2>
 
@@ -622,7 +574,7 @@ function validarFormulario(): boolean {
           </label>
 
           <label>
-            Já ficou agendado? *
+            Já ficou agendado?
             <select
               value={
                 dados.proximaVisitaAgendada === undefined
@@ -668,7 +620,7 @@ function validarFormulario(): boolean {
         </section>
       )}
 
-      {!erroCarregamento && pagina === 6 && (
+      {!erroCarregamento && (consultaCompleta || pagina === 6) && (
         <section className="medicos-card">
           <h2>Observações de relacionamento</h2>
           {!!secretarias?.length && <label>Secretárias vinculadas ao médico
@@ -680,7 +632,7 @@ function validarFormulario(): boolean {
             </select></label>}
 
           <label>
-            Nome da secretária *
+            Nome da secretária
             <input
               value={dados.nomeSecretaria}
               onChange={e => alterar(
@@ -704,11 +656,30 @@ function validarFormulario(): boolean {
         </section>
       )}
 
+      </fieldset>
+      {confirmarVolta && <div className="formulario-confirmacao-fundo">
+        <div className="formulario-confirmacao" role="dialog" aria-modal="true" aria-labelledby="confirmar-volta-titulo">
+          <h2 id="confirmar-volta-titulo">Deseja salvar as alterações?</h2>
+          <p>Você tem alterações que ainda não foram salvas.</p>
+          <div className="formulario-confirmacao-acoes">
+            <button type="button" disabled={salvando} autoFocus onClick={() => setConfirmarVolta(false)}>Continuar editando</button>
+            <button type="button" disabled={salvando} onClick={() => { setConfirmarVolta(false); voltar(); }}>Sair sem salvar</button>
+            <button type="button" className="medicos-botao-principal" disabled={salvando} onClick={async () => {
+              if (await salvar(false)) { setConfirmarVolta(false); voltar(); }
+              else setConfirmarVolta(false);
+            }}>{salvando ? 'Salvando...' : 'Salvar e voltar'}</button>
+          </div>
+        </div>
+      </div>}
       {mensagem && (
         <p role="status">{mensagem}</p>
       )}
 
-      <div className="medicos-acoes">
+      {consultaCompleta ? (editandoConsulta && <div className="medicos-acoes formulario-acoes-edicao">
+        <button type="button" className="medicos-botao-principal" disabled={salvando || erroCarregamento} onClick={async () => {
+          if (await salvar(false)) { setEditandoConsulta(false); setMensagem('Alterações salvas.'); }
+        }}>Salvar alterações</button>
+      </div>) : <div className="medicos-acoes">
         <button
           type="button"
           disabled={salvando}
@@ -717,13 +688,7 @@ function validarFormulario(): boolean {
           {!erroCarregamento && pagina === 1 ? 'Voltar' : 'Anterior'}
         </button>
 
-        <button
-          type="button"
-          disabled={salvando || erroCarregamento}
-          onClick={() => void salvar(false)}
-        >
-          Salvar rascunho
-        </button>
+        
 
         {pagina < 6 ? (
           <button
@@ -740,17 +705,13 @@ function validarFormulario(): boolean {
             className="medicos-botao-principal"
             disabled={salvando || erroCarregamento}
             
-onClick={() => {
-  if (validarFormulario()) {
-    void salvar(true);
-  }
-}}
+onClick={() => void salvar(true)}
 
           >
             Finalizar formulário
           </button>
         )}
-      </div>
+      </div>}
     </div>
   );
 }

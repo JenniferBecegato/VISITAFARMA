@@ -25,3 +25,11 @@
 @media print {
   .app-identificacao-mobile { display: none !important; }
 }
+
+.relatorios-sem-visita table { width: 100%; min-width: 680px; table-layout: fixed; }
+.relatorios-sem-visita th, .relatorios-sem-visita td { padding: 14px 18px; vertical-align: top; overflow-wrap: anywhere; }
+.relatorios-sem-visita th { white-space: normal; background: #f4f7fb; color: #182f60; }
+.relatorios-sem-visita th:nth-child(1) { width: 22%; }
+.relatorios-sem-visita th:nth-child(2) { width: 24%; }
+.relatorios-sem-visita th:nth-child(3) { width: 32%; }
+.relatorios-sem-visita th:nth-child(4) { width: 22%; }

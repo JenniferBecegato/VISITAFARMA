@@ -11,3 +11,8 @@
 .produtos-lista-topo h2 { margin-bottom: 0; }
 .produtos-lista-topo label { margin: 0; min-width: 120px; }
 .produto-observacoes { grid-column: 1 / -1; }
+
+.cadastros-pagina .produtos-lista-topo { display:flex; flex-direction:row; flex-wrap:nowrap; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+.cadastros-pagina .produtos-lista-topo h2 { flex:1; margin:0; text-align:left; }
+.cadastros-pagina .produtos-lista-topo label { flex:0 0 110px; min-width:0; margin:0; }
+.cadastros-pagina .produtos-lista-topo select { width:100%; box-sizing:border-box; padding:8px 10px; min-height:36px; }

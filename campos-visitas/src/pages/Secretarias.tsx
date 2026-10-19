@@ -37,7 +37,10 @@ export default function Secretarias() {
     catch (error) { setErro(error instanceof Error ? error.message : 'Erro ao salvar.'); }
     finally { trava.current = false; setSalvando(false); }
   }
-  const lista = (secretarias ?? []).filter(s => normalizarTexto(`${s.nome} ${s.localTrabalho ?? ''} ${s.telefone ?? ''}`).includes(normalizarTexto(buscaAplicada)))
+  const lista = (secretarias ?? []).map(s => ({ ...s, ...completarContato({
+    nome: s.nome, telefone: s.telefone, localTrabalho: s.localTrabalho, observacoes: s.observacoes,
+    medicoIds: s.medicoIds ?? [s.medicoId]
+  }) })).filter(s => normalizarTexto(`${s.nome} ${s.localTrabalho ?? ''} ${s.telefone ?? ''}`).includes(normalizarTexto(buscaAplicada)))
     .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
   return <div className="medicos-pagina cadastros-pagina">
     <header className="medicos-cabecalho cabecalho-com-busca"><div><h1>Secretárias</h1><p>Contatos vinculados a um ou mais médicos.</p></div>

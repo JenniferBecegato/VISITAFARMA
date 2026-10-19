@@ -53,3 +53,23 @@
   }
   .calendario-resumo-mobile span { font-size: 8px; font-weight: 400; }
 }
+
+.calendario-legenda { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 16px; }
+.calendario-data { display:inline-block; padding:4px 8px; border-radius:5px; border-left:3px solid; font-size:11px; line-height:1.4; }
+.calendario-data.nacional { background:#eee8f5; color:#573b76; border-color:#82619f; }
+.calendario-data.estadual { background:#f5e8ef; color:#813f65; border-color:#ad7093; }
+.calendario-data.municipal { background:#efe7e1; color:#704e38; border-color:#9b765a; }
+.calendario-data.facultativo { background:#ebebef; color:#50515f; border-color:#81818f; }
+.calendario-data.comemorativo { background:#f8e8df; color:#8b5039; border-color:#bd8267; }
+.calendario-data-dia { display:block; position:relative; pointer-events:none; margin-top:4px; overflow-wrap:anywhere; }
+.calendario-data-mobile { display:none; }
+.calendario-datas-mes { margin-top:20px; }
+.calendario-datas-mes h3 { font-size:14px; color:#182f60; }
+.calendario-datas-mes ul { list-style:none; padding:0; margin:0; }
+.calendario-datas-mes li { display:flex; flex-wrap:wrap; align-items:center; gap:10px; border-bottom:1px solid #e2e8f0; padding:10px 0; font-size:13px; }
+.calendario-fonte { font-size:12px; color:#68788f; line-height:1.5; }
+@media(max-width:650px) {
+  .calendario-data-dia { display:inline-block; padding:0 2px; border:0; margin:2px 1px; line-height:1; }
+  .calendario-data-nome { display:none; }
+  .calendario-data-mobile { display:inline; }
+}

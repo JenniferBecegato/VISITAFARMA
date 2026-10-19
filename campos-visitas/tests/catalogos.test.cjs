@@ -21,7 +21,7 @@ function ambiente() {
       } })
     };
   }
-  const db = { produtos: tabela(), medicos: tabela(), secretarias: tabela(), visitaProdutos: tabela() };
+  const db = { produtos: tabela(), medicos: tabela(), secretarias: tabela(), visitaProdutos: tabela(), visitas: tabela() };
   let fila = Promise.resolve();
   db.transaction = (...args) => {
     const tabelas = args.slice(1, -1);
@@ -130,4 +130,40 @@ test('retirar uma secretária preserva o contato e o vínculo com outros médico
   assert.equal(contato.medicoIds.join(','), 'outro');
   assert.equal(contato.telefone, '123');
   assert.equal((await a.db.medicos.get('m')).secretariaIds.length, 0);
+});
+
+test('secretárias do médico herdam o telefone e preservam números próprios', async () => {
+  const a = ambiente();
+  await a.db.medicos.put({ id: 'm', usuarioId: 'u', telefone: ' 11999998888 ' });
+  const salvar = campos => a.db.transaction('rw', a.db.medicos, a.db.secretarias,
+    () => a.gravarSecretariasDoMedico('u', 'm', campos));
+  await salvar([{ nome: 'Claudia' }, { nome: 'Gabi' }]);
+  const ids = (await a.db.medicos.get('m')).secretariaIds;
+  for (const id of ids) assert.equal((await a.db.secretarias.get(id)).telefone, '11999998888');
+  await a.db.secretarias.update(ids[0], { telefone: '1133334444' });
+  await a.db.secretarias.update(ids[1], { telefone: ' ' });
+  await salvar([{ id: ids[0], nome: 'Claudia' }, { id: ids[1], nome: 'Gabi' }]);
+  assert.equal((await a.db.secretarias.get(ids[0])).telefone, '1133334444');
+  assert.equal((await a.db.secretarias.get(ids[1])).telefone, '11999998888');
+  assert.equal(a.db.secretarias.linhas.size, 2);
+});
+
+test('retorno do formulário cria uma única visita, atualiza horário e preserva visitas encerradas', async () => {
+  const a = ambiente();
+  const origem = { id: 'v', usuarioId: 'u', medicoId: 'm', status: 'realizada', local: 'Clínica' };
+  const f = { id: 'f', usuarioId: 'u', medicoId: 'm', visitaId: 'v', dataProximoRetorno: '2026-12-01' };
+  await a.gravarRetornoDoFormulario(f, origem);
+  assert.equal(a.db.visitas.linhas.size, 0);
+  const completo = { ...f, horaProximoRetorno: '14:30' };
+  await a.gravarRetornoDoFormulario(completo, origem);
+  await a.gravarRetornoDoFormulario(completo, origem, completo);
+  assert.equal(a.db.visitas.linhas.size, 1);
+  const id = 'retorno-formulario-f';
+  assert.equal((await a.db.visitas.get(id)).medicoId, 'm');
+  assert.equal((await a.db.visitas.get(id)).status, 'agendada');
+  await a.gravarRetornoDoFormulario({ ...completo, horaProximoRetorno: '15:00' }, origem, completo);
+  assert.equal((await a.db.visitas.get(id)).horaInicio, '15:00');
+  await a.db.visitas.update(id, { status: 'realizada' });
+  await a.gravarRetornoDoFormulario({ ...completo, horaProximoRetorno: '16:00' }, origem, completo);
+  assert.equal((await a.db.visitas.get(id)).horaInicio, '15:00');
 });

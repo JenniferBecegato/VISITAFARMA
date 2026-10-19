@@ -1,0 +1,30 @@
+.pasta-medico .pasta-linha {
+  display: grid;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+.pasta-medico .pasta-linha:last-child { border-bottom: 0; }
+.pasta-medico .pasta-visita { grid-template-columns: 64px minmax(140px, 1fr) 150px 180px; }
+.pasta-medico .pasta-formulario { grid-template-columns: minmax(140px, 1fr) 180px; }
+.pasta-medico .pasta-linha > strong { color: #0758bd; font-size: 14px; }
+.pasta-medico .pasta-linha > div { display:flex; flex-direction:column; gap:6px; min-width:0; }
+.pasta-medico .pasta-linha > div > span { color:#182f60; font-size:14px; font-weight:600; }
+.pasta-medico .pasta-linha small { color:#68788f; font-size:12px; overflow-wrap:anywhere; }
+.pasta-medico .pasta-linha .inicio-status { justify-self:start; width:auto; max-width:100%; box-sizing:border-box; }
+.pasta-medico .pasta-linha .pasta-botao-relatorio { justify-self:end; width:180px; min-height:42px; padding:10px 14px; box-sizing:border-box; }
+@media(max-width:800px) {
+  .pasta-medico .pasta-visita { grid-template-columns: 56px minmax(0, 1fr); }
+  .pasta-medico .pasta-formulario { grid-template-columns: minmax(0, 1fr) auto; }
+  .pasta-medico .pasta-linha { gap:12px; }
+  .pasta-medico .pasta-linha .pasta-botao-relatorio { grid-column:1 / -1; width:auto; justify-self:start; }
+}
+
+.pasta-historico > summary { display:flex; justify-content:space-between; align-items:center; gap:16px; cursor:pointer; list-style:none; }
+.pasta-historico > summary::-webkit-details-marker { display:none; }
+.pasta-historico > summary h2 { margin:0; }
+.pasta-historico > summary:focus-visible { outline:2px solid #0758bd; outline-offset:6px; border-radius:4px; }
+.pasta-historico-seta { font-size:24px; color:#52647d; transition:transform .2s; }
+.pasta-historico[open] .pasta-historico-seta { transform:rotate(180deg); }
+.pasta-historico[open] > summary { margin-bottom:16px; }

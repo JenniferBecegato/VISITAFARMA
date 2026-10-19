@@ -6,7 +6,7 @@ const path = require('node:path');
 const ts = require('typescript');
 function carregar(arquivo) {
   const exports = {};
-  const contexto = { exports, Date, Map, Set };
+  const contexto = { exports, Date, Map, Set, require: nome => { if (nome === './relatorios') return carregar('../src/utils/relatorios.ts'); throw new Error(nome); } };
   vm.createContext(contexto);
   vm.runInContext(ts.transpileModule(fs.readFileSync(path.join(__dirname, arquivo), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
@@ -130,4 +130,79 @@ test('médicos sem visita exibem data e produtos da última realização, mesmo 
   assert.equal(m.ultima, '2026-07-01');
   assert.equal(m.produtosAssuntos, 'Zinco');
   assert.equal(r.semVisita.find(x => x.medico.id === 'n').ultima, undefined);
+});
+
+test('total por médico conta todo o histórico realizado, ignora outros status e exclusões e inclui zero', () => {
+  const medicos = [{ id: 'm1', nome: 'Ana' }, { id: 'm2', nome: 'Bia' }, { id: 'm3', nome: 'Caio', excluidoEm: 'data' }];
+  const visitas = [
+    { id: '1', medicoId: 'm1', data: '2025-01-01', status: 'realizada' },
+    { id: '2', medicoId: 'm1', data: '2026-10-01', status: 'realizada' },
+    ...['agendada', 'reagendada', 'cancelada'].map((status, i) => ({ id: `s${i}`, medicoId: 'm1', data: '2026-10-02', status })),
+    { id: '3', medicoId: 'm1', data: '2026-10-03', status: 'realizada', excluidoEm: 'data' }
+  ];
+  const calcular = inicio => calcularRelatorio(medicos, visitas, [], [], inicio, '2026-10-19', new Date(2026, 9, 19));
+  for (const inicio of ['2026-10-01', '2026-10-15']) {
+    const itens = calcular(inicio).visitasPorMedico;
+    assert.equal(itens.length, 2);
+    assert.equal(itens[0].medico.id, 'm1');
+    assert.equal(itens[0].totalRealizadas, 2);
+    assert.equal(itens[1].totalRealizadas, 0);
+  }
+});
+
+test('dias sem visita usa dias de calendário desde a última realização e distingue nunca visitados', () => {
+  const r = calcularRelatorio([{ id: 'm', nome: 'Ana' }, { id: 'n', nome: 'Sem visita' }], [
+    { id: 'v', medicoId: 'm', data: '2026-07-01', status: 'realizada' },
+    { id: 'a', medicoId: 'm', data: '2026-10-15', status: 'agendada' },
+    { id: 'x', medicoId: 'm', data: '2026-10-14', status: 'realizada', excluidoEm: 'data' }
+  ], [], [], '2026-10-01', '2026-10-19', new Date(2026, 9, 19, 23, 59));
+  assert.equal(r.semVisita.find(x => x.medico.id === 'm').diasSemVisita, 110);
+  assert.equal(r.semVisita.find(x => x.medico.id === 'n').diasSemVisita, undefined);
+});
+
+test('datas de Presidente Prudente cobrem 2026 e 2027 e preservam as categorias da fonte', () => {
+  const { datasNoDia, datasNoMes, datasPresidentePrudente2027 } = carregar('../src/utils/feriados.ts');
+  assert.equal(datasPresidentePrudente2027.length, 28);
+  assert.equal(datasNoDia('2026-01-20')[0].tipo, 'municipal');
+  assert.equal(datasNoDia('2026-12-25')[0].nome, 'Natal');
+  assert.equal(datasNoMes(2026, 11).length, 5);
+  assert.equal(datasNoDia('2028-01-20').length, 1);
+  assert.equal(datasNoDia('2027-01-20')[0].tipo, 'municipal');
+  assert.equal(datasNoDia('2027-07-09')[0].tipo, 'estadual');
+  assert.equal(datasNoDia('2027-05-27').length, 2);
+  assert.equal(datasNoMes(2027, 11).length, 2);
+});
+
+test('datas profissionais aparecem a cada ano sem substituir feriados no mesmo dia', () => {
+  const { datasNoDia, datasNoMes } = carregar('../src/utils/feriados.ts');
+  for (const ano of [2026, 2027, 2028]) {
+    assert.ok(datasNoDia(`${ano}-01-20`).some(d => d.nome === 'Dia do Farmacêutico' && d.tipo === 'comemorativo'));
+    assert.ok(datasNoMes(ano, 8).some(d => d.nome === 'Dia da Secretária' && d.data === `${ano}-09-30`));
+    assert.ok(datasNoDia(`${ano}-10-18`).some(d => d.nome === 'Dia do Médico'));
+  }
+  assert.ok(datasNoDia('2026-01-20').some(d => d.tipo === 'municipal'));
+});
+
+test('lista de formulários usa data da visita, um por dia e ordem decrescente', () => {
+  const { formulariosPorData } = carregar('../src/utils/formularios.ts');
+  const visitas = [{ id: 'v1', data: '2026-10-15' }, { id: 'v2', data: '2026-10-19' }];
+  const formularios = [
+    { id: 'f1', visitaId: 'v1', criadoEm: '2026-10-15T12:00:00', atualizadoEm: '2026-10-15' },
+    { id: 'f2', visitaId: 'v2', criadoEm: '2026-10-15T12:00:00', atualizadoEm: '2026-10-19' },
+    { id: 'f3', visitaId: 'v1', criadoEm: '2026-10-15T12:00:00', atualizadoEm: '2026-10-20' }
+  ];
+  const lista = formulariosPorData(formularios, visitas);
+  assert.equal(lista.length, 2);
+  assert.equal(lista[0].data, '2026-10-19');
+  assert.equal(lista[0].formulario.id, 'f2');
+  assert.equal(lista[1].formulario.id, 'f3');
+});
+
+test('busca de médico ignora ponto, título, acento e caixa e aceita nomes parciais', () => {
+  const { correspondeBuscaMedico } = carregar('../src/utils/texto.ts');
+  for (const busca of ['dr jennifer', 'dr. jennifer', 'Jennifer', 'jenn', 'dr']) {
+    assert.equal(correspondeBuscaMedico('Dr. Jennifer', busca), true);
+  }
+  assert.equal(correspondeBuscaMedico('Dra. Márcia Souza', 'marcia'), true);
+  assert.equal(correspondeBuscaMedico('Dr. Jennifer', 'Felipe'), false);
 });
