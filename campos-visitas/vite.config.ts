@@ -12,6 +12,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
 
       includeAssets: [
+        'push-worker.js',
         'favicon.ico',
         'apple-touch-icon.png'
       ],
@@ -42,6 +43,7 @@ export default defineConfig({
       },
 
       workbox: {
+        importScripts: ['/push-worker.js'],
         navigateFallback: '/index.html',
         globPatterns: [
           '**/*.{js,css,html,ico,png,svg,woff2}'

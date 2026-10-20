@@ -342,3 +342,12 @@
 @media (min-width:651px) and (max-width:1100px) {
   .inicio-visita > .inicio-status { grid-column:1 / -1; justify-self:start; width:max-content; max-width:100%; }
 }
+
+.inicio-lembretes h2 { margin: 0; }
+.inicio-lembretes p { color: #68788f; font-size: 13px; line-height: 1.5; }
+.inicio-lembrete-evento { display: flex; align-items: center; gap: 10px; border-top: 1px solid #f3dce8; padding: 12px 0; }
+.inicio-lembrete-evento > div { display: flex; flex-direction: column; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
+.inicio-lembrete-evento small { color: #68788f; }
+.inicio-bolinha-rosa { flex-shrink: 0; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: #fff0f7; cursor: pointer; }
+.inicio-bolinha-rosa span { display: block; width: 14px; height: 14px; border-radius: 50%; background: #e83e8c; box-shadow: 0 0 0 4px #fce0ee; }
+.inicio-bolinha-rosa:focus-visible { outline: 3px solid #182f60; outline-offset: 3px; }

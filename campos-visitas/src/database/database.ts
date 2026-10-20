@@ -237,6 +237,7 @@ export type FilaSincronizacao = Pendencia;
 // ==========================================
 
 export class CamposDatabase extends Dexie {
+  lembretesLidos!: Table<{ id: string; usuarioId: string; chave: string; visitaId: string; data: string; horaInicio: string; enviado: number }, string>;
   medicos!: Table<Medico, string>;
   secretarias!: Table<Secretaria, string>;
   produtos!: Table<Produto, string>;
@@ -295,6 +296,7 @@ this.version(2).stores({
         exportadoEm: new Date().toISOString(), registros });
       await tx.table('filaSincronizacao').clear();
     });
+    this.version(4).stores({ lembretesLidos: 'id, usuarioId, enviado' });
     instalarRastreamento(this);
 
   }

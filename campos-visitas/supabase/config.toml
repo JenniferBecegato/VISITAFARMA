@@ -1,0 +1,4 @@
+project_id = "campos-visitas"
+
+[functions.enviar-lembretes]
+verify_jwt = false

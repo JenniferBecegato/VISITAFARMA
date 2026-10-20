@@ -13,6 +13,7 @@ import './Layout.css';
 
 import type { Identificacao } from '../services/identificacao';
 import { exportarBackup } from '../services/backup';
+import type { ControleLembretes } from '../hooks/useLembretes';
 
 export type Pagina =
   | 'inicio'
@@ -25,6 +26,7 @@ export type Pagina =
   | 'historico';
 
 interface LayoutProps {
+  notificacoes: Pick<ControleLembretes, 'ativo' | 'ocupado' | 'suportado' | 'alternar' | 'erro'>;
   children: ReactNode;
   identificacao: Identificacao;
   alterarIdentificacao: () => Promise<void>;
@@ -49,8 +51,8 @@ const itensMenu: {
 ];
 
 export default function Layout({
+  notificacoes,
   children,
-  identificacao,
   alterarIdentificacao,
   prepararBackup,
   paginaAtual,
@@ -78,7 +80,17 @@ export default function Layout({
         </div>
 
         <div className="app-cabecalho-direita">
-
+          {paginaAtual === 'inicio' && <div className="app-notificacoes">
+            <button type="button" role="switch" aria-checked={notificacoes.ativo} aria-label="Notificações"
+              aria-busy={notificacoes.ocupado} aria-describedby={notificacoes.erro ? 'notificacoes-aviso' : undefined}
+              className="app-notificacoes-chave" disabled={notificacoes.ocupado || !notificacoes.suportado}
+              title={!notificacoes.suportado ? 'Instale o app na tela inicial para permitir notificações.' : notificacoes.ativo ? 'Desativar notificações neste aparelho' : 'Permitir notificações neste aparelho'}
+              onClick={() => void notificacoes.alternar()}>
+              <span className="app-notificacoes-trilho" aria-hidden="true"><span /></span>
+              <span>Notificações</span>
+            </button>
+            {notificacoes.erro && <p id="notificacoes-aviso" className="app-notificacoes-aviso" role="alert">{notificacoes.erro}</p>}
+          </div>}
           <button
             className="app-botao-menu"
             onClick={() => setMenuAberto(!menuAberto)}
@@ -90,7 +102,7 @@ export default function Layout({
       </header>
 
       <aside className={`app-menu-lateral ${menuAberto ? 'aberto' : ''}`}>
-        <div className="app-identificacao"><button className="app-identificacao-link" type="button" title="Sair da conta" onClick={() => void alterarIdentificacao()}>{identificacao.nome}</button></div>
+        <div className="app-identificacao"><button className="app-identificacao-link" type="button" title="Voltar à página de login" onClick={() => void alterarIdentificacao()}>Alterar identificação</button></div>
           <button title="Baixar uma cópia dos dados deste aparelho em arquivo JSON" className="app-backup" type="button" disabled={exportando} onClick={async () => {
             setExportando(true); setBackupMensagem('');
             try {
@@ -117,7 +129,7 @@ export default function Layout({
 
       <main className="app-conteudo">
         <div className="app-identificacao-mobile">
-          <button className="app-identificacao-link" type="button" title="Sair da conta" onClick={() => void alterarIdentificacao()}>{identificacao.nome}</button>
+          <button className="app-identificacao-link" type="button" title="Voltar à página de login" onClick={() => void alterarIdentificacao()}>Alterar identificação</button>
         </div>
         {backupMensagem && <p role="status">{backupMensagem}</p>}
         {children}

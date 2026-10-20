@@ -7,6 +7,7 @@ import { db, type Visita } from '../database/database';
 import './Inicio.css';
 import { alterarSituacaoVisita } from '../database/visitas';
 import { separarVisitas } from '../utils/inicio';
+import type { ControleLembretes } from '../hooks/useLembretes';
 
 
 function obterDataLocal() {
@@ -27,9 +28,9 @@ function formatarData(data: string) {
   return `${dia}/${mes}/${ano}`;
 }
 
-interface Props { nomeUsuario: string; unidade: string; editarVisita: (visita: Visita) => void;
+interface Props { lembretes: ControleLembretes; nomeUsuario: string; unidade: string; editarVisita: (visita: Visita) => void;
   abrirRelatorio: (visita: Visita) => void; abrirPasta: (medicoId: string) => void; }
-export default function Inicio({ nomeUsuario, unidade, editarVisita, abrirRelatorio, abrirPasta }: Props) {
+export default function Inicio({ lembretes, nomeUsuario, unidade, editarVisita, abrirRelatorio, abrirPasta }: Props) {
   const { usuarioId } = useConta();
   const [mensagem, setMensagem] = useState('');
   const [atualizando, setAtualizando] = useState<string>();
@@ -86,6 +87,15 @@ export default function Inicio({ nomeUsuario, unidade, editarVisita, abrirRelato
         </span>
       </div>
 
+      <section className="inicio-card inicio-lembretes" aria-label="Lembretes de visitas">
+        <h2>Lembretes de visitas</h2>
+        {lembretes.pendentes.length > 0 && <p>Toque na bolinha rosa para marcar o lembrete como lido.</p>}
+        {lembretes.pendentes.map(visita => <article key={visita.id} className="inicio-lembrete-evento">
+          <button type="button" className="inicio-bolinha-rosa" aria-label={`Marcar como lido: ${nomeMedico(visita)}, ${formatarData(visita.data)}, ${visita.horaInicio}`}
+            title="Marcar lembrete como lido" onClick={() => void lembretes.marcarLido(visita)}><span aria-hidden="true" /></button>
+          <div><strong>{nomeMedico(visita)}</strong><small>{formatarData(visita.data)} · {visita.horaInicio} · {visita.local || 'Local não informado'}</small></div>
+        </article>)}
+      </section>
       <div className="inicio-indicadores">
         <div className="inicio-indicador azul">
           <span>Visitas de hoje</span>

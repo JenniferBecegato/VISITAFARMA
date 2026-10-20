@@ -20,6 +20,8 @@ import Secretarias from './pages/Secretarias';
 import Medicos from './pages/Medicos';
 import PastaMedico from './pages/PastaMedico';
 import FormularioVisita from './pages/FormularioVisita';
+import { useLembretes } from './hooks/useLembretes';
+import { desativarNotificacoes } from './services/notificacoes';
 
 interface FormularioSelecionado {
   medicoId: string;
@@ -29,6 +31,7 @@ interface FormularioSelecionado {
 
 function AplicativoConta({ identificacao, sair }: { identificacao: Conta; sair: () => void }) {
   const usuarioId = identificacao.usuarioId;
+  const lembretes = useLembretes(usuarioId);
   const [paginaAtual, setPaginaAtual] =
     useState<Pagina>('inicio');
 
@@ -40,6 +43,13 @@ function AplicativoConta({ identificacao, sair }: { identificacao: Conta; sair: 
 
   const saidaFormularioRef = useRef<(() => Promise<boolean>) | null>(null);
   const navegandoRef = useRef(false);
+  useEffect(() => {
+    const abrir = (evento: MessageEvent) => {
+      if (evento.data?.tipo === 'ABRIR_LEMBRETES' && evento.data.usuarioId === usuarioId) setPaginaAtual('inicio');
+    };
+    navigator.serviceWorker?.addEventListener('message', abrir);
+    return () => navigator.serviceWorker?.removeEventListener('message', abrir);
+  }, [usuarioId]);
   const registrarSaida = useCallback((salvar: (() => Promise<boolean>) | null) => {
     saidaFormularioRef.current = salvar;
   }, []);
@@ -155,7 +165,7 @@ function AplicativoConta({ identificacao, sair }: { identificacao: Conta; sair: 
 
     switch (paginaAtual) {
       case 'inicio':
-        return <Inicio nomeUsuario={identificacao?.nome ?? ''} unidade={identificacao?.unidade ?? ''} editarVisita={editarVisita} abrirRelatorio={abrirRelatorio} abrirPasta={abrirPastaMedico} />;
+        return <Inicio lembretes={lembretes} nomeUsuario={identificacao?.nome ?? ''} unidade={identificacao?.unidade ?? ''} editarVisita={editarVisita} abrirRelatorio={abrirRelatorio} abrirPasta={abrirPastaMedico} />;
 
       case 'agenda':
         return <Agenda key={visitaEdicao?.id ?? 'agenda'} visitaInicial={visitaEdicao} abrirPasta={abrirPastaMedico} abrirRelatorio={abrirRelatorio} />;
@@ -200,7 +210,7 @@ function AplicativoConta({ identificacao, sair }: { identificacao: Conta; sair: 
   }
 
   return (
-    <Layout paginaAtual={paginaAtual} navegar={navegar} prepararBackup={prepararBackup} identificacao={identificacao} alterarIdentificacao={alterarIdentificacao}>
+    <Layout notificacoes={lembretes} paginaAtual={paginaAtual} navegar={navegar} prepararBackup={prepararBackup} identificacao={identificacao} alterarIdentificacao={alterarIdentificacao}>
       <Sincronizacao sessaoInvalida={sair} />
       {erroNavegacao && <p role="alert">{erroNavegacao}</p>}
       {renderizarPagina()}
@@ -217,12 +227,13 @@ export default function App() {
     saindo.current = true;
     limparConta(); setConta(null); setEncerrando(true);
     const terminar = () => { localStorage.removeItem(CHAVE_AUTH); saindo.current = false; setEncerrando(false); };
-    if (supabase) void supabase.auth.signOut({ scope: 'local' }).then(terminar, terminar);
-    else terminar();
+    void desativarNotificacoes().catch(() => undefined).then(async () => {
+      if (supabase) await supabase.auth.signOut({ scope: 'local' });
+    }).then(terminar, terminar);
   }, []);
   useEffect(() => {
     const assinatura = supabase?.auth.onAuthStateChange((evento) => {
-      if (evento === 'SIGNED_OUT') { limparConta(); setConta(null); }
+      if (evento === 'SIGNED_OUT') { limparConta(); setConta(null); void desativarNotificacoes().catch(() => undefined); }
     });
     const outraAba = (evento: StorageEvent) => {
       if (evento.key === 'campos-conta-offline') setConta(lerConta());

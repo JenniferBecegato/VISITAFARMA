@@ -15,7 +15,7 @@ test('PostgreSQL: migrações, RLS, idempotência, conflitos e lote atômico', a
     create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
     grant usage on schema auth, public to anon, authenticated;
     grant execute on function auth.uid() to anon, authenticated;`);
-  for (const file of ['202610150001_base.sql', '202610190001_sincronizacao.sql', '202610190002_perfil_usuario.sql']) {
+  for (const file of ['202610150001_base.sql', '202610190001_sincronizacao.sql', '202610190002_perfil_usuario.sql', '202610200002_autocadastro.sql']) {
     await pg.exec(fs.readFileSync(path.join(__dirname, '../supabase/migrations', file), 'utf8'));
   }
   const perfilId = crypto.randomUUID();
@@ -30,6 +30,11 @@ test('PostgreSQL: migrações, RLS, idempotência, conflitos e lote atômico', a
   await assert.rejects(pg.query('insert into public.usuarios(id,nome,unidade) values($1,$2,$3)', [a, 'Nome', 'Dr. Gurgel']), /permission denied/);
   await assert.rejects(pg.query('update public.usuarios set nome = $1 where id = $2', ['Outro nome', perfilId]), /permission denied/);
   assert.equal((await pg.query('select * from public.usuarios where id = $1', [perfilId])).rows.length, 0);
+  await assert.rejects(pg.query("select public.completar_cadastro('Nome', 'Outra')"), /inválidos/);
+  await pg.query("select public.completar_cadastro(' Primeiro acesso ', 'Dr. Gurgel')");
+  await pg.query("select public.completar_cadastro('Sobrescrever', 'Washington Luiz')");
+  assert.deepEqual((await pg.query('select nome, unidade from public.usuarios')).rows,
+    [{ nome: 'Primeiro acesso', unidade: 'Dr. Gurgel' }]);
   const enviar = async lote => (await pg.query('select public.sincronizar_lote($1::jsonb) as resultado', [JSON.stringify(lote)])).rows[0].resultado;
   const snapshot = async () => (await pg.query('select public.baixar_snapshot() as dados')).rows[0].dados;
   const montar = (tabela, registro, versao = 0) => ({ tabela, registro: { ...registro, usuario_id: a,
@@ -68,6 +73,7 @@ test('PostgreSQL: migrações, RLS, idempotência, conflitos e lote atômico', a
   invasao.registro.usuario_id = b;
   await assert.rejects(enviar([invasao]), /foreign key/);
   await pg.exec('reset role; set role anon;');
+  await assert.rejects(pg.query("select public.completar_cadastro('Anônimo', 'Dr. Gurgel')"), /permission denied/);
   await assert.rejects(snapshot(), /permission denied/);
   await assert.rejects(enviar([]), /permission denied/);
   await pg.exec('reset role;');
