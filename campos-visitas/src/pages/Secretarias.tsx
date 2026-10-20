@@ -1,3 +1,4 @@
+import { useConta } from '../services/conta';
 import { useRef, useState, type FormEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type Secretaria } from '../database/database';
@@ -5,9 +6,9 @@ import { salvarSecretaria, type DadosSecretaria } from '../database/catalogos';
 import { normalizarTexto } from '../utils/texto';
 import './Medicos.css';
 import './Cadastros.css';
-const USUARIO = 'usuario-local-teste';
 const inicial: DadosSecretaria = { nome: '', telefone: '', localTrabalho: '', observacoes: '', medicoIds: [] };
 export default function Secretarias() {
+  const { usuarioId } = useConta();
   const [dados, setDados] = useState(inicial);
   const [editando, setEditando] = useState<string>();
   const [aberto, setAberto] = useState(false);
@@ -17,8 +18,8 @@ export default function Secretarias() {
   const [mensagem, setMensagem] = useState('');
   const [salvando, setSalvando] = useState(false);
   const trava = useRef(false);
-  const medicos = useLiveQuery(() => db.medicos.where('usuarioId').equals(USUARIO).filter(m => !m.excluidoEm).sortBy('nome'), []);
-  const secretarias = useLiveQuery(() => db.secretarias.where('usuarioId').equals(USUARIO).filter(s => !s.excluidoEm).toArray(), []);
+  const medicos = useLiveQuery(() => db.medicos.where('usuarioId').equals(usuarioId).filter(m => !m.excluidoEm).sortBy('nome'), []);
+  const secretarias = useLiveQuery(() => db.secretarias.where('usuarioId').equals(usuarioId).filter(s => !s.excluidoEm).toArray(), []);
   function completarContato(contato: DadosSecretaria): DadosSecretaria {
     const vinculados = contato.medicoIds.map(id => medicos?.find(m => m.id === id)).filter(m => !!m);
     const telefones = [...new Set(vinculados.map(m => m.telefone?.trim()).filter(Boolean))].join(' / ');
@@ -33,7 +34,7 @@ export default function Secretarias() {
   async function salvar(e: FormEvent) {
     e.preventDefault(); if (trava.current) return;
     trava.current = true; setSalvando(true); setErro('');
-    try { await salvarSecretaria(USUARIO, dados, editando); setAberto(false); setMensagem('Secretária salva offline.'); }
+    try { await salvarSecretaria(usuarioId, dados, editando); setAberto(false); setMensagem('Secretária salva offline.'); }
     catch (error) { setErro(error instanceof Error ? error.message : 'Erro ao salvar.'); }
     finally { trava.current = false; setSalvando(false); }
   }

@@ -1,3 +1,4 @@
+import { useConta } from '../services/conta';
 import { formulariosPorData } from '../utils/formularios';
 import './PastaMedico.css';
 import { rotuloStatusVisita } from '../utils/statusVisita';
@@ -17,7 +18,6 @@ interface PastaMedicoProps {
 }
 
 
-const USUARIO_TESTE = 'usuario-local-teste';
 
 function formatarData(data: string) {
   if (!data) return '-';
@@ -31,6 +31,7 @@ export default function PastaMedico({
   voltar,
   abrirFormulario
 }: PastaMedicoProps) {
+  const { usuarioId } = useConta();
 
 
   const medico = useLiveQuery(
@@ -43,7 +44,7 @@ export default function PastaMedico({
       .where('medicoId')
       .equals(medicoId)
       .filter(v =>
-        v.usuarioId === USUARIO_TESTE &&
+        v.usuarioId === usuarioId &&
         !v.excluidoEm
       )
       .toArray(),
@@ -55,7 +56,7 @@ export default function PastaMedico({
       .where('medicoId')
       .equals(medicoId)
       .filter(f =>
-        f.usuarioId === USUARIO_TESTE &&
+        f.usuarioId === usuarioId &&
         !f.excluidoEm
       )
       .toArray(),
@@ -65,7 +66,7 @@ export default function PastaMedico({
   const historicos = useLiveQuery(
     () => db.historicoReagendamentos
       .where('usuarioId')
-      .equals(USUARIO_TESTE)
+      .equals(usuarioId)
       .filter(h =>
         (visitas ?? []).some(v => v.id === h.visitaId)
       )
@@ -83,7 +84,7 @@ export default function PastaMedico({
 
   if (
     !medico ||
-    medico.usuarioId !== USUARIO_TESTE ||
+    medico.usuarioId !== usuarioId ||
     medico.excluidoEm
   ) {
     return (

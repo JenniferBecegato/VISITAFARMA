@@ -1,3 +1,4 @@
+import { useConta } from '../services/conta';
 import iconeHistorico from '../assets/menu/historico.svg';
 import iconeInicio from '../assets/menu/inicio.svg';
 import iconeAgenda from '../assets/menu/agenda.svg';
@@ -55,6 +56,7 @@ export default function Layout({
   paginaAtual,
   navegar
 }: LayoutProps) {
+  const { usuarioId } = useConta();
   const [backupMensagem, setBackupMensagem] = useState('');
   const [exportando, setExportando] = useState(false);
   const [menuAberto, setMenuAberto] = useState(false);
@@ -88,12 +90,12 @@ export default function Layout({
       </header>
 
       <aside className={`app-menu-lateral ${menuAberto ? 'aberto' : ''}`}>
-        <div className="app-identificacao"><button className="app-identificacao-link" type="button" title="Alterar identificação" onClick={() => void alterarIdentificacao()}>{identificacao.nome}</button></div>
+        <div className="app-identificacao"><button className="app-identificacao-link" type="button" title="Sair da conta" onClick={() => void alterarIdentificacao()}>{identificacao.nome}</button></div>
           <button title="Baixar uma cópia dos dados deste aparelho em arquivo JSON" className="app-backup" type="button" disabled={exportando} onClick={async () => {
             setExportando(true); setBackupMensagem('');
             try {
               if (!await prepararBackup()) throw new Error('Salvamento pendente');
-              await exportarBackup('usuario-local-teste'); setBackupMensagem('Backup exportado. Guarde o arquivo em um local seguro.'); }
+              await exportarBackup(usuarioId); setBackupMensagem('Backup exportado. Guarde o arquivo em um local seguro.'); }
             catch { setBackupMensagem('Erro ao exportar o backup. Tente novamente.'); }
             finally { setExportando(false); }
           }}>{exportando ? 'Exportando...' : 'Exportar backup'}</button>
@@ -115,7 +117,7 @@ export default function Layout({
 
       <main className="app-conteudo">
         <div className="app-identificacao-mobile">
-          <button className="app-identificacao-link" type="button" title="Alterar identificação" onClick={() => void alterarIdentificacao()}>{identificacao.nome}</button>
+          <button className="app-identificacao-link" type="button" title="Sair da conta" onClick={() => void alterarIdentificacao()}>{identificacao.nome}</button>
         </div>
         {backupMensagem && <p role="status">{backupMensagem}</p>}
         {children}

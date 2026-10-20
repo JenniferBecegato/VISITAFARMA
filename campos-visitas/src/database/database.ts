@@ -1,5 +1,7 @@
 
 import Dexie, { type Table } from 'dexie';
+import { instalarRastreamento } from './rastreamento';
+import type { Pendencia, MetadadosSync, ConflitoSync } from './syncTypes';
 
 // ==========================================
 // TIPOS GERAIS
@@ -228,19 +230,7 @@ export interface HistoricoReagendamento {
 // FILA DE SINCRONIZAÇÃO
 // ==========================================
 
-export interface FilaSincronizacao {
-  id: string;
-  usuarioId: string;
-
-  tabela: string;
-  registroId: string;
-
-  operacao: 'criar' | 'atualizar' | 'excluir';
-
-  criadoEm: string;
-  tentativas: number;
-  ultimoErro?: string;
-}
+export type FilaSincronizacao = Pendencia;
 
 // ==========================================
 // BANCO DE DADOS
@@ -253,12 +243,15 @@ export class CamposDatabase extends Dexie {
   visitas!: Table<Visita, string>;
   visitaProdutos!: Table<VisitaProduto, string>;
   formularios!: Table<FormularioVisita, string>;
-  filaSincronizacao!: Table<FilaSincronizacao, string>;
+  filaSincronizacao!: Table<Pendencia, string>;
+  metadadosSync!: Table<MetadadosSync, string>;
+  conflitosSync!: Table<ConflitoSync, string>;
+  backupsLegados!: Table<{ id: string; usuarioId: string; registros: Record<string, unknown[]>; exportadoEm: string }, string>;
   historicoReagendamentos!: Table<HistoricoReagendamento, string>;
 
 
-  constructor() {
-    super('CamposVisitasDB');
+  constructor(nome = 'CamposVisitasDB') {
+    super(nome);
 
     this.version(1).stores({
       medicos:
@@ -288,6 +281,21 @@ this.version(2).stores({
   historicoReagendamentos:
     'id, usuarioId, visitaId, alteradoEm, sincronizacao'
 });
+
+    this.version(3).stores({
+      filaSincronizacao: 'id, usuarioId, tabela, registroId, criadoEm',
+      metadadosSync: 'id, usuarioId',
+      conflitosSync: 'id, usuarioId',
+      backupsLegados: 'id, usuarioId'
+    }).upgrade(async tx => {
+      const nomes = ['medicos', 'secretarias', 'produtos', 'visitas', 'visitaProdutos', 'formularios', 'historicoReagendamentos'];
+      const registros = Object.fromEntries(await Promise.all(nomes.map(async nome => [nome,
+        await tx.table(nome).where('usuarioId').equals('usuario-local-teste').toArray()])));
+      await tx.table('backupsLegados').put({ id: 'testes-v2', usuarioId: 'usuario-local-teste',
+        exportadoEm: new Date().toISOString(), registros });
+      await tx.table('filaSincronizacao').clear();
+    });
+    instalarRastreamento(this);
 
   }
 }

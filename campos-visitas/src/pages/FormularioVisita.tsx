@@ -1,3 +1,4 @@
+import { useConta } from '../services/conta';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -11,7 +12,6 @@ import './FormularioVisita.css';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { gravarProdutosDaVisita, gravarRetornoDoFormulario } from '../database/catalogos';
 
-const USUARIO_TESTE = 'usuario-local-teste';
 
 type DadosFormulario = Omit<
   FormularioVisita,
@@ -66,9 +66,10 @@ export default function FormularioVisita({
   registrarSaida,
   consultaCompleta = false
 }: Props) {
-  const produtos = useLiveQuery(() => db.produtos.where('usuarioId').equals(USUARIO_TESTE)
+  const { usuarioId } = useConta();
+  const produtos = useLiveQuery(() => db.produtos.where('usuarioId').equals(usuarioId)
     .filter(p => p.ativo && !p.excluidoEm).sortBy('nome'), []);
-  const secretarias = useLiveQuery(() => db.secretarias.where('usuarioId').equals(USUARIO_TESTE)
+  const secretarias = useLiveQuery(() => db.secretarias.where('usuarioId').equals(usuarioId)
     .filter(s => !s.excluidoEm && (s.medicoIds ?? [s.medicoId]).includes(medicoId)).sortBy('nome'), [medicoId]);
   const [editandoConsulta, setEditandoConsulta] = useState(false);
   const [confirmarVolta, setConfirmarVolta] = useState(false);
@@ -110,8 +111,8 @@ export default function FormularioVisita({
         if (
           !medico ||
           !visita ||
-          medico.usuarioId !== USUARIO_TESTE ||
-          visita.usuarioId !== USUARIO_TESTE ||
+          medico.usuarioId !== usuarioId ||
+          visita.usuarioId !== usuarioId ||
           visita.medicoId !== medicoId
         ) {
           throw new Error('Médico ou visita inválida.');
@@ -120,12 +121,12 @@ export default function FormularioVisita({
         const formularioExistente = formularioId
           ? await db.formularios.get(formularioId)
           : (await db.formularios.where('visitaId').equals(visitaId)
-            .filter(f => f.usuarioId === USUARIO_TESTE && !f.excluidoEm).toArray())
+            .filter(f => f.usuarioId === usuarioId && !f.excluidoEm).toArray())
             .sort((a, b) => b.atualizadoEm.localeCompare(a.atualizadoEm))[0];
 
         if (formularioId && (
           !formularioExistente ||
-          formularioExistente.usuarioId !== USUARIO_TESTE ||
+          formularioExistente.usuarioId !== usuarioId ||
           formularioExistente.medicoId !== medicoId ||
           formularioExistente.visitaId !== visitaId
         )) {
@@ -156,7 +157,7 @@ export default function FormularioVisita({
             especialidade: medico.especialidade,
             localClinica: visita.local || medico.clinica || '',
             perfilMedico: medico.perfil,
-            nomeSecretaria: secretaria?.usuarioId === USUARIO_TESTE && !secretaria.excluidoEm &&
+            nomeSecretaria: secretaria?.usuarioId === usuarioId && !secretaria.excluidoEm &&
               (secretaria.medicoIds ?? [secretaria.medicoId]).includes(medicoId) ? secretaria.nome : ''
           };
           dadosRef.current = iniciais;
@@ -178,7 +179,7 @@ export default function FormularioVisita({
     return () => {
       ativo = false;
     };
-  }, [medicoId, visitaId, formularioId]);
+  }, [medicoId, visitaId, formularioId, usuarioId]);
 
   
 function alterar<K extends keyof DadosFormulario>(
@@ -207,13 +208,13 @@ const salvar = useCallback((finalizar = false): Promise<boolean> => {
     const status = await db.transaction('rw', [db.formularios, db.visitas, db.produtos, db.visitaProdutos], async () => {
       const existente = await db.formularios.get(idAtual);
       const visita = await db.visitas.get(visitaId);
-      if (!visita || visita.usuarioId !== USUARIO_TESTE || visita.medicoId !== medicoId) {
+      if (!visita || visita.usuarioId !== usuarioId || visita.medicoId !== medicoId) {
         throw new Error('Visita não encontrada.');
       }
       if (finalizar && visita.status === 'cancelada') {
         throw new Error('Não é possível finalizar uma visita cancelada.');
       }
-      if (existente && (existente.usuarioId !== USUARIO_TESTE ||
+      if (existente && (existente.usuarioId !== usuarioId ||
         existente.medicoId !== medicoId || existente.visitaId !== visitaId)) {
         throw new Error('Formulário inválido.');
       }
@@ -221,7 +222,7 @@ const salvar = useCallback((finalizar = false): Promise<boolean> => {
       const formulario: FormularioVisita = {
         ...campos,
         id: idAtual,
-        usuarioId: USUARIO_TESTE,
+        usuarioId: usuarioId,
         medicoId,
         visitaId,
         status: finalizar || existente?.status === 'finalizado' ? 'finalizado' : 'rascunho',
@@ -232,7 +233,7 @@ const salvar = useCallback((finalizar = false): Promise<boolean> => {
       await db.formularios.put(formulario);
       await gravarRetornoDoFormulario(formulario, visita, existente);
       if (campos.produtosSelecionados !== undefined) {
-        await gravarProdutosDaVisita(USUARIO_TESTE, visitaId, campos.produtosSelecionados);
+        await gravarProdutosDaVisita(usuarioId, visitaId, campos.produtosSelecionados);
       }
       if (finalizar) {
         await db.visitas.update(visitaId, {
@@ -262,7 +263,7 @@ const salvar = useCallback((finalizar = false): Promise<boolean> => {
   });
   salvamentoRef.current = gravacao;
   return gravacao;
-}, [carregando, erroCarregamento, idAtual, medicoId, visitaId]);
+}, [carregando, erroCarregamento, idAtual, medicoId, visitaId, usuarioId]);
 
 const salvarAntesDeSair = useCallback(async () => {
   if (carregando) return false;

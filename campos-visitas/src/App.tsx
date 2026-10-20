@@ -8,7 +8,9 @@ import Layout, { type Pagina } from './components/Layout';
 
 import Inicio from './pages/Inicio';
 import Login from './pages/Login';
-import { lerIdentificacao, guardarIdentificacao, limparIdentificacao, type Identificacao } from './services/identificacao';
+import { ContextoConta, lerConta, limparConta, type Conta } from './services/conta';
+import { CHAVE_AUTH, supabase } from './services/supabase';
+import Sincronizacao from './components/Sincronizacao';
 import Agenda from './pages/Agenda';
 import Formularios from './pages/Formularios';
 import { db, type Visita } from './database/database';
@@ -25,8 +27,8 @@ interface FormularioSelecionado {
   formularioId?: string;
 }
 
-function App() {
-  const [identificacao, setIdentificacao] = useState<Identificacao | null>(lerIdentificacao);
+function AplicativoConta({ identificacao, sair }: { identificacao: Conta; sair: () => void }) {
+  const usuarioId = identificacao.usuarioId;
   const [paginaAtual, setPaginaAtual] =
     useState<Pagina>('inicio');
 
@@ -57,7 +59,7 @@ function App() {
   const [erroNavegacao, setErroNavegacao] = useState('');
   useEffect(() => {
     const atualizar = () => {
-      void atualizarVisitasRemarcadas('usuario-local-teste', dataLocal())
+      void atualizarVisitasRemarcadas(usuarioId, dataLocal())
         .catch(() => setErroNavegacao('Não foi possível atualizar as visitas remarcadas. Atualize a página para tentar novamente.'));
     };
     atualizar();
@@ -69,7 +71,7 @@ function App() {
       window.removeEventListener('focus', atualizar);
       document.removeEventListener('visibilitychange', atualizar);
     };
-  }, []);
+  }, [usuarioId]);
 
 
   async function prepararBackup() {
@@ -125,7 +127,7 @@ function App() {
     try {
       setErroNavegacao('');
       const formularios = await db.formularios.where('visitaId').equals(visita.id)
-        .filter(f => f.usuarioId === 'usuario-local-teste' && !f.excluidoEm).toArray();
+        .filter(f => f.usuarioId === usuarioId && !f.excluidoEm).toArray();
       if (visita.status === 'cancelada' && !formularios.length) {
         setErroNavegacao('Esta visita foi cancelada e não possui formulário.'); return;
       }
@@ -191,21 +193,44 @@ function App() {
     }
   }
 
-  if (!identificacao) return <Login entrar={valor => {
-    guardarIdentificacao(valor); setIdentificacao(valor); trocarPagina('inicio');
-  }} />;
 
   async function alterarIdentificacao() {
     if (!await prepararBackup()) return;
-    limparIdentificacao(); setIdentificacao(null); trocarPagina('inicio');
+    sair();
   }
 
   return (
     <Layout paginaAtual={paginaAtual} navegar={navegar} prepararBackup={prepararBackup} identificacao={identificacao} alterarIdentificacao={alterarIdentificacao}>
+      <Sincronizacao sessaoInvalida={sair} />
       {erroNavegacao && <p role="alert">{erroNavegacao}</p>}
       {renderizarPagina()}
     </Layout>
   );
 }
 
-export default App;
+export default function App() {
+  const [conta, setConta] = useState<Conta | null>(lerConta);
+  const [encerrando, setEncerrando] = useState(false);
+  const saindo = useRef(false);
+  const sair = useCallback(() => {
+    if (saindo.current) return;
+    saindo.current = true;
+    limparConta(); setConta(null); setEncerrando(true);
+    const terminar = () => { localStorage.removeItem(CHAVE_AUTH); saindo.current = false; setEncerrando(false); };
+    if (supabase) void supabase.auth.signOut({ scope: 'local' }).then(terminar, terminar);
+    else terminar();
+  }, []);
+  useEffect(() => {
+    const assinatura = supabase?.auth.onAuthStateChange((evento) => {
+      if (evento === 'SIGNED_OUT') { limparConta(); setConta(null); }
+    });
+    const outraAba = (evento: StorageEvent) => {
+      if (evento.key === 'campos-conta-offline') setConta(lerConta());
+    };
+    window.addEventListener('storage', outraAba);
+    return () => { assinatura?.data.subscription.unsubscribe(); window.removeEventListener('storage', outraAba); };
+  }, []);
+  if (encerrando) return <p role="status">Encerrando sessão…</p>;
+  if (!conta) return <Login entrar={setConta} />;
+  return <ContextoConta.Provider value={conta}><AplicativoConta key={conta.usuarioId} identificacao={conta} sair={sair} /></ContextoConta.Provider>;
+}

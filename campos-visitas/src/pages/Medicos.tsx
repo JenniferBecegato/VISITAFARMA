@@ -1,3 +1,4 @@
+import { useConta } from '../services/conta';
 
 import { useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -12,7 +13,6 @@ import './Medicos.css';
 import { gravarSecretariasDoMedico, type ContatoSecretaria } from '../database/catalogos';
 import { normalizarTexto, nomesMedicosParecidos } from '../utils/texto';
 
-const USUARIO_TESTE = 'usuario-local-teste';
 
 const formularioInicial = {
   nome: '',
@@ -30,6 +30,7 @@ interface MedicosProps {
 }
 
 export default function Medicos({ abrirPasta }: MedicosProps) {
+  const { usuarioId } = useConta();
 
   const [formulario, setFormulario] = useState(formularioInicial);
   const [maisDeUmaSecretaria, setMaisDeUmaSecretaria] = useState(false);
@@ -47,12 +48,12 @@ export default function Medicos({ abrirPasta }: MedicosProps) {
   const medicos = useLiveQuery(
     () => db.medicos
       .where('usuarioId')
-      .equals(USUARIO_TESTE)
+      .equals(usuarioId)
       .toArray(),
     []
   );
 
-  const secretarias = useLiveQuery(() => db.secretarias.where('usuarioId').equals(USUARIO_TESTE).filter(s => !s.excluidoEm).toArray(), []);
+  const secretarias = useLiveQuery(() => db.secretarias.where('usuarioId').equals(usuarioId).filter(s => !s.excluidoEm).toArray(), []);
 
   const atualizarCampo = (campo: string, valor: string) => {
     setConferido(false);
@@ -97,7 +98,7 @@ export default function Medicos({ abrirPasta }: MedicosProps) {
     trava.current = true; setSalvando(true);
     try {
       await db.transaction('rw', db.medicos, db.secretarias, async () => {
-        const registros = await db.medicos.where('usuarioId').equals(USUARIO_TESTE)
+        const registros = await db.medicos.where('usuarioId').equals(usuarioId)
           .filter(m => !m.excluidoEm && m.id !== editandoId).toArray();
         const mesmoCrm = registros.find(m => crm && m.crm?.replace(/[^0-9]/g, '') === crm && m.ufCrm?.toUpperCase() === ufCrm);
         if (mesmoCrm) throw new Error(`CRM já cadastrado para ${mesmoCrm.nome}. Abra o cadastro existente.`);
@@ -110,13 +111,13 @@ export default function Medicos({ abrirPasta }: MedicosProps) {
           throw new Error(`Nome semelhante a ${semelhante.nome}. Confira se são pessoas diferentes antes de continuar.`);
         }
         const anterior = editandoId ? await db.medicos.get(editandoId) : undefined;
-        if (editandoId && (!anterior || anterior.usuarioId !== USUARIO_TESTE || anterior.excluidoEm)) throw new Error('Médico não encontrado.');
+        if (editandoId && (!anterior || anterior.usuarioId !== usuarioId || anterior.excluidoEm)) throw new Error('Médico não encontrado.');
         const agora = dataAtual();
         const medico: Medico = { ...anterior, ...formulario, nome, crm, ufCrm, especialidade,
-          id: editandoId ?? gerarId(), usuarioId: USUARIO_TESTE,
+          id: editandoId ?? gerarId(), usuarioId: usuarioId,
           criadoEm: anterior?.criadoEm ?? agora, atualizadoEm: agora, sincronizacao: 'pendente' };
         await db.medicos.put(medico);
-        await gravarSecretariasDoMedico(USUARIO_TESTE, medico.id, contatosPreenchidos);
+        await gravarSecretariasDoMedico(usuarioId, medico.id, contatosPreenchidos);
       });
       limparFormulario();
     } catch (error) {

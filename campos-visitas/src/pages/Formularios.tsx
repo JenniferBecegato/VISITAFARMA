@@ -1,18 +1,19 @@
+import { useConta } from '../services/conta';
 import { useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type Visita } from '../database/database';
 import { correspondeBuscaMedico } from '../utils/texto';
 import './Medicos.css';
-const USUARIO = 'usuario-local-teste';
 export default function Formularios({ abrir }: { abrir: (visita: Visita) => void }) {
+  const { usuarioId } = useConta();
   const [busca, setBusca] = useState('');
   const [sugerir, setSugerir] = useState(false);
   const [dia, setDia] = useState('');
   const [filtros, setFiltros] = useState({ medico: '', dia: '' });
   const dados = useLiveQuery(() => db.transaction('r', db.formularios, db.visitas, db.medicos, async () => ({
-    formularios: await db.formularios.where('usuarioId').equals(USUARIO).filter(f => !f.excluidoEm).toArray(),
-    visitas: await db.visitas.where('usuarioId').equals(USUARIO).filter(v => !v.excluidoEm).toArray(),
-    medicos: await db.medicos.where('usuarioId').equals(USUARIO).toArray()
+    formularios: await db.formularios.where('usuarioId').equals(usuarioId).filter(f => !f.excluidoEm).toArray(),
+    visitas: await db.visitas.where('usuarioId').equals(usuarioId).filter(v => !v.excluidoEm).toArray(),
+    medicos: await db.medicos.where('usuarioId').equals(usuarioId).toArray()
   })), []);
   const sugestoes = (dados?.medicos ?? []).filter(m => !m.excluidoEm && correspondeBuscaMedico(m.nome, busca)).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')).slice(0, 10);
   const visitas = (dados?.visitas ?? []).filter(v => correspondeBuscaMedico(dados?.medicos.find(m => m.id === v.medicoId)?.nome ?? '', filtros.medico) && (!filtros.dia || v.data === filtros.dia)).sort((a, b) => `${b.data} ${b.horaInicio}`.localeCompare(`${a.data} ${a.horaInicio}`));

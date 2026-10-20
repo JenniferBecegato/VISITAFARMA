@@ -47,3 +47,22 @@ Os registros usados nessa conferência estão identificados como teste local no 
 5. Implementar restauração validada de backup, testar persistência do armazenamento e validar a PWA nos dispositivos Android, iPhone e iPad, inclusive falhas de conexão e atualização da aplicação.
 
 As contagens de produtos e amostras incluem apenas itens selecionados do catálogo, em visitas realizadas. Registros históricos em texto livre permanecem preservados, mas não são interpretados automaticamente como quantidades.
+
+## Atualização de 19/10/2026 — login e sincronização
+
+- Configuração movida para .env.local, biblioteca oficial do Supabase instalada e entrada por e-mail/senha com perfil remoto.
+- Usuário de teste substituído pela conta autenticada nas telas. Pendências, consultas e backups são separados por conta; sair fecha o acesso local e mantém pendências.
+- Gravações locais geram outbox na mesma transação IndexedDB. Sincronização na abertura, reconexão, retorno, gravação e a cada 60 segundos com a tela visível; tentativas crescentes até cinco minutos.
+- Revisões UUID, versões remotas, reenvio idempotente, proteção de alterações durante o envio, exclusões lógicas e escolha explícita em conflitos.
+- Lote transacional remoto mantém formulário/visita/amostras/vínculos consistentes. Download de snapshot completo por conta aplica apenas versões novas sem substituir pendências.
+- Migrações aplicadas em TesteAgendaProject. Validação transacional no Supabase hospedado aprovada, sem manter os dados fictícios.
+- Testes automatizados de IndexedDB e PostgreSQL local, lint e build aprovados. A tela de login também foi conferida no navegador. Login com contas reais e validação física nos aparelhos ainda pendentes.
+- Documentação atual em docs/SINCRONIZACAO.md e docs/SUPABASE.md. A lista anterior de próximas etapas descreve o estado histórico de 15/10, anterior a esta integração.
+
+## Ajuste do cadastro de usuárias — 19/10/2026
+
+- Login reduzido a e-mail e senha. Nome e unidade são lidos exclusivamente de public.usuarios.
+- Migração 202610190002_perfil_usuario.sql aplicada no Supabase: unidade obrigatória, nome validado, perfil somente para leitura da própria usuária e criação automática do perfil pelo cadastro administrativo com metadados.
+- Perfil existente preservado: Jennifer, Washington Luiz. Entrada real conferida no navegador e sincronização concluída sem pendências.
+- Script de criação de usuários atualizado para receber nome e unidade antes de criar a conta. Contas incompletas não são completadas pelo login.
+- 47 testes aprovados, lint e build aprovados. Evidência visual em docs/login-perfil-validado.png.

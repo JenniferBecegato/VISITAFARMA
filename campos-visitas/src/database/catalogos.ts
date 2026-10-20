@@ -116,7 +116,10 @@ export async function gravarRetornoDoFormulario(
   const horaInicio = formulario.horaProximoRetorno;
   if (!data || !horaInicio || origem.excluidoEm || origem.status === 'cancelada') return;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(data) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(horaInicio)) return;
-  const id = `retorno-formulario-${formulario.id}`;
+  // IDs de tabelas diferentes podem coincidir. Reutilizar o UUID do formulário
+  // torna o retorno determinístico e compatível com as chaves UUID do Supabase.
+  const id = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(formulario.id)
+    ? formulario.id : `retorno-formulario-${formulario.id}`;
   const retorno = await db.visitas.get(id);
   if (retorno && (retorno.usuarioId !== formulario.usuarioId || retorno.medicoId !== formulario.medicoId ||
     retorno.excluidoEm || retorno.status === 'realizada' || retorno.status === 'cancelada')) return;

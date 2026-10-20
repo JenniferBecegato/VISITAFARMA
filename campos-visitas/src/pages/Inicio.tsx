@@ -1,3 +1,4 @@
+import { useConta } from '../services/conta';
 import { rotuloStatusVisita } from '../utils/statusVisita';
 
 import { useEffect, useMemo, useState } from 'react';
@@ -7,7 +8,6 @@ import './Inicio.css';
 import { alterarSituacaoVisita } from '../database/visitas';
 import { separarVisitas } from '../utils/inicio';
 
-const USUARIO_TESTE = 'usuario-local-teste';
 
 function obterDataLocal() {
   const hoje = new Date();
@@ -30,12 +30,13 @@ function formatarData(data: string) {
 interface Props { nomeUsuario: string; unidade: string; editarVisita: (visita: Visita) => void;
   abrirRelatorio: (visita: Visita) => void; abrirPasta: (medicoId: string) => void; }
 export default function Inicio({ nomeUsuario, unidade, editarVisita, abrirRelatorio, abrirPasta }: Props) {
+  const { usuarioId } = useConta();
   const [mensagem, setMensagem] = useState('');
   const [atualizando, setAtualizando] = useState<string>();
   async function mudarSituacao(visita: Visita, status: 'realizada' | 'cancelada') {
     if (!window.confirm(status === 'realizada' ? 'Marcar esta visita como realizada?' : 'Cancelar esta visita?')) return;
     setAtualizando(visita.id); setMensagem('');
-    try { await alterarSituacaoVisita(USUARIO_TESTE, visita.id, status); }
+    try { await alterarSituacaoVisita(usuarioId, visita.id, status); }
     catch (erro) { setMensagem(erro instanceof Error ? erro.message : 'Não foi possível atualizar a visita.'); }
     finally { setAtualizando(undefined); }
   }
@@ -51,7 +52,7 @@ export default function Inicio({ nomeUsuario, unidade, editarVisita, abrirRelato
   const visitas = useLiveQuery(
     () => db.visitas
       .where('usuarioId')
-      .equals(USUARIO_TESTE)
+      .equals(usuarioId)
       .toArray(),
     []
   );
@@ -59,7 +60,7 @@ export default function Inicio({ nomeUsuario, unidade, editarVisita, abrirRelato
   const medicos = useLiveQuery(
     () => db.medicos
       .where('usuarioId')
-      .equals(USUARIO_TESTE)
+      .equals(usuarioId)
       .toArray(),
     []
   );

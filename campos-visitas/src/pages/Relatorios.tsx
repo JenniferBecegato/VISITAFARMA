@@ -1,24 +1,25 @@
+import { useConta } from '../services/conta';
 import { useState, type FormEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../database/database';
 import { calcularRelatorio, dataLocal, diasAntes } from '../utils/relatorios';
 import './Medicos.css';
 import './Relatorios.css';
-const USUARIO = 'usuario-local-teste';
 const formatar = (data: string) => data.split('-').reverse().join('/');
 const rotulos = { agendada: 'Agendadas', realizada: 'Visitas realizadas', reagendada: 'Visitas remarcadas', cancelada: 'Canceladas' };
 export default function Relatorios() {
+  const { usuarioId } = useConta();
   const [periodo, setPeriodo] = useState('30');
   const [inicio, setInicio] = useState(() => diasAntes(29));
   const [fim, setFim] = useState(() => dataLocal());
   const [aplicado, setAplicado] = useState(() => ({ inicio: diasAntes(29), fim: dataLocal() }));
   const [erro, setErro] = useState('');
   const dados = useLiveQuery(() => db.transaction('r', [db.medicos, db.visitas, db.produtos, db.visitaProdutos, db.formularios], async () => ({
-    medicos: await db.medicos.where('usuarioId').equals(USUARIO).toArray(),
-    visitas: await db.visitas.where('usuarioId').equals(USUARIO).toArray(),
-    produtos: await db.produtos.where('usuarioId').equals(USUARIO).toArray(),
-    vinculos: await db.visitaProdutos.where('usuarioId').equals(USUARIO).toArray(),
-    formularios: await db.formularios.where('usuarioId').equals(USUARIO).toArray()
+    medicos: await db.medicos.where('usuarioId').equals(usuarioId).toArray(),
+    visitas: await db.visitas.where('usuarioId').equals(usuarioId).toArray(),
+    produtos: await db.produtos.where('usuarioId').equals(usuarioId).toArray(),
+    vinculos: await db.visitaProdutos.where('usuarioId').equals(usuarioId).toArray(),
+    formularios: await db.formularios.where('usuarioId').equals(usuarioId).toArray()
   })), []);
   const resumo = dados ? calcularRelatorio(dados.medicos, dados.visitas, dados.produtos, dados.vinculos, aplicado.inicio, aplicado.fim, new Date(), dados.formularios) : undefined;
   function buscar(e: FormEvent) {

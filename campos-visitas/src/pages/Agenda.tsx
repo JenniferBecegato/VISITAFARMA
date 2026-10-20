@@ -1,3 +1,4 @@
+import { useConta } from '../services/conta';
 import { normalizarTexto } from '../utils/texto';
 import { rotuloStatusVisita } from '../utils/statusVisita';
 
@@ -13,7 +14,6 @@ import './Agenda.css';
 import CalendarioVisitas from '../components/CalendarioVisitas';
 import { alterarSituacaoVisita, salvarAgendamento } from '../database/visitas';
 
-const USUARIO_TESTE = 'usuario-local-teste';
 
 function obterDataLocal() {
   const hoje = new Date();
@@ -36,6 +36,7 @@ export default function Agenda({ visitaInicial, abrirPasta, abrirRelatorio }: {
   abrirPasta: (medicoId: string) => void;
   abrirRelatorio: (visita: Visita) => void;
 }) {
+  const { usuarioId } = useConta();
   const travaSituacao = useRef(false);
   const [atualizandoId, setAtualizandoId] = useState<string>();
   const [erroSituacao, setErroSituacao] = useState('');
@@ -47,7 +48,7 @@ export default function Agenda({ visitaInicial, abrirPasta, abrirRelatorio }: {
     setAtualizandoId(visita.id);
     setErroSituacao('');
     try {
-      await alterarSituacaoVisita(USUARIO_TESTE, visita.id, status);
+      await alterarSituacaoVisita(usuarioId, visita.id, status);
     } catch (erro) {
       setErroSituacao(erro instanceof Error ? erro.message : 'Não foi possível atualizar a visita.');
     } finally {
@@ -71,7 +72,7 @@ export default function Agenda({ visitaInicial, abrirPasta, abrirRelatorio }: {
   const [local, setLocal] = useState(visitaInicial?.local ?? '');
   const [produtosAssuntos, setProdutosAssuntos] = useState(visitaInicial?.produtosAssuntos ?? '');
   const [sugerirProdutos, setSugerirProdutos] = useState(false);
-  const produtos = useLiveQuery(() => db.produtos.where('usuarioId').equals(USUARIO_TESTE)
+  const produtos = useLiveQuery(() => db.produtos.where('usuarioId').equals(usuarioId)
     .filter(p => !p.excluidoEm && p.ativo).sortBy('nome'), []);
   const termoProduto = normalizarTexto(produtosAssuntos.split(/[;,.]/).at(-1) ?? '');
   const sugestoesProdutos = termoProduto ? (produtos ?? []).filter(p => normalizarTexto(p.nome).includes(termoProduto)).slice(0, 6) : [];
@@ -82,7 +83,7 @@ export default function Agenda({ visitaInicial, abrirPasta, abrirRelatorio }: {
     setSugerirProdutos(false);
   }
   const [secretariaId, setSecretariaId] = useState(visitaInicial?.secretariaId ?? '');
-  const secretarias = useLiveQuery(() => db.secretarias.where('usuarioId').equals(USUARIO_TESTE)
+  const secretarias = useLiveQuery(() => db.secretarias.where('usuarioId').equals(usuarioId)
     .filter(s => !s.excluidoEm && (s.medicoIds ?? [s.medicoId]).includes(medicoId)).sortBy('nome'), [medicoId]);
   const [observacoes, setObservacoes] = useState(visitaInicial?.observacoes ?? '');
   const [erro, setErro] = useState('');
@@ -91,7 +92,7 @@ export default function Agenda({ visitaInicial, abrirPasta, abrirRelatorio }: {
   const medicos = useLiveQuery(
     () => db.medicos
       .where('usuarioId')
-      .equals(USUARIO_TESTE)
+      .equals(usuarioId)
       .toArray(),
     []
   );
@@ -100,7 +101,7 @@ export default function Agenda({ visitaInicial, abrirPasta, abrirRelatorio }: {
   const visitas = useLiveQuery(
     () => db.visitas
       .where('usuarioId')
-      .equals(USUARIO_TESTE)
+      .equals(usuarioId)
       .toArray(),
     []
   );
@@ -161,7 +162,7 @@ export default function Agenda({ visitaInicial, abrirPasta, abrirRelatorio }: {
     if (travaSalvar.current) return;
     travaSalvar.current = true; setSalvando(true); setErro('');
     try {
-      await salvarAgendamento(USUARIO_TESTE, { medicoId, data, horaInicio, horaFim, local, secretariaId, observacoes, produtosAssuntos },
+      await salvarAgendamento(usuarioId, { medicoId, data, horaInicio, horaFim, local, secretariaId, observacoes, produtosAssuntos },
         editandoId ?? undefined, atualizadoEmEdicao);
       setDiaSelecionado(data); limparFormulario();
     } catch (error) {

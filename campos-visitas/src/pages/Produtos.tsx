@@ -1,3 +1,4 @@
+import { useConta } from '../services/conta';
 import { useRef, useState, type FormEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, type Produto } from '../database/database';
@@ -6,10 +7,10 @@ import { normalizarTexto } from '../utils/texto';
 import './Medicos.css';
 import './Cadastros.css';
 
-const USUARIO = 'usuario-local-teste';
 const inicial: DadosProduto = { nome: '', categoria: '', descricao: '', observacoes: '', ativo: true };
 
 export default function Produtos() {
+  const { usuarioId } = useConta();
   const [dados, setDados] = useState(inicial);
   const [editando, setEditando] = useState<string>();
   const [aberto, setAberto] = useState(false);
@@ -20,7 +21,7 @@ export default function Produtos() {
   const [erro, setErro] = useState('');
   const [mensagem, setMensagem] = useState('');
   const trava = useRef(false);
-  const produtos = useLiveQuery(() => db.produtos.where('usuarioId').equals(USUARIO).filter(p => !p.excluidoEm).toArray(), []);
+  const produtos = useLiveQuery(() => db.produtos.where('usuarioId').equals(usuarioId).filter(p => !p.excluidoEm).toArray(), []);
   const lista = (produtos ?? []).filter(p => (situacao === 'todos' || p.ativo === (situacao === 'ativos')) &&
     normalizarTexto(`${p.nome} ${p.categoria ?? ''} ${p.descricao ?? ''} ${p.observacoes ?? ''}`).includes(normalizarTexto(buscaAplicada)))
     .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
@@ -35,7 +36,7 @@ export default function Produtos() {
     if (trava.current) return;
     trava.current = true; setSalvando(true); setErro('');
     try {
-      await salvarProduto(USUARIO, dados, editando);
+      await salvarProduto(usuarioId, dados, editando);
       setAberto(false); setMensagem('Produto salvo offline.');
     } catch (error) { setErro(error instanceof Error ? error.message : 'Erro ao salvar o produto.'); }
     finally { trava.current = false; setSalvando(false); }

@@ -1,3 +1,4 @@
+import { useConta } from '../services/conta';
 import { useEffect, useState, type FormEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../database/database';
@@ -5,7 +6,6 @@ import { filtrarHistorico } from '../utils/historico';
 import { rotuloStatusVisita } from '../utils/statusVisita';
 import './Medicos.css';
 import './Historico.css';
-const USUARIO = 'usuario-local-teste';
 export default function Historico() {
   const [ano, setAno] = useState(() => new Date().getFullYear());
   useEffect(() => {
@@ -18,6 +18,7 @@ export default function Historico() {
   return <HistoricoDoAno key={ano} ano={ano} />;
 }
 function HistoricoDoAno({ ano }: { ano: number }) {
+  const { usuarioId } = useConta();
   const primeiro = `${ano}-01-01`, ultimo = `${ano}-12-31`;
   const [inicio, setInicio] = useState(primeiro);
   const [fim, setFim] = useState(ultimo);
@@ -25,11 +26,11 @@ function HistoricoDoAno({ ano }: { ano: number }) {
   const [erro, setErro] = useState('');
   const dados = useLiveQuery(async () => {
     const [visitas, medicos, secretarias, produtos, vinculos] = await Promise.all([
-      db.visitas.where('usuarioId').equals(USUARIO).toArray(),
-      db.medicos.where('usuarioId').equals(USUARIO).toArray(),
-      db.secretarias.where('usuarioId').equals(USUARIO).toArray(),
-      db.produtos.where('usuarioId').equals(USUARIO).toArray(),
-      db.visitaProdutos.where('usuarioId').equals(USUARIO).toArray()
+      db.visitas.where('usuarioId').equals(usuarioId).toArray(),
+      db.medicos.where('usuarioId').equals(usuarioId).toArray(),
+      db.secretarias.where('usuarioId').equals(usuarioId).toArray(),
+      db.produtos.where('usuarioId').equals(usuarioId).toArray(),
+      db.visitaProdutos.where('usuarioId').equals(usuarioId).toArray()
     ]);
     return { visitas, medicos, secretarias, produtos, vinculos };
   }, []);

@@ -16,7 +16,7 @@ function setup() {
   const context = {
     gravarRetornoDoFormulario: async () => {},
     consultaCompleta: false, useCallback: fn => fn, carregando: false, erroCarregamento: false,
-    idAtual: 'f', medicoId: 'm', visitaId: 'v', USUARIO_TESTE: 'u',
+    idAtual: 'f', medicoId: 'm', visitaId: 'v', usuarioId: 'u',
     dadosRef: { current: { nomeMedico: 'Inicial', status: 'rascunho' } },
     criadoEmRef: { current: 'criacao' }, versaoRef: { current: 0 },
     versaoSalvaRef: { current: 0 }, pendentesRef: { current: 0 },
