@@ -292,3 +292,39 @@
 .app-notificacoes-aviso { position: absolute; right: 0; top: calc(100% + 8px); z-index: 60; width: min(310px, calc(100vw - 32px)); box-sizing: border-box; padding: 12px; margin: 0; background: white; color: #182f60; font-size: 12px; line-height: 1.5; border: 1px solid #cad5e4; border-radius: 9px; box-shadow: 0 6px 20px #102d6026; }
 @media(max-width:420px) { .app-notificacoes-chave { padding: 8px; font-size: 12px; gap: 7px; } }
 @media(prefers-reduced-motion:reduce) { .app-notificacoes-trilho > span { transition: none; } }
+
+@media (max-width: 900px) {
+  .app-identificacao-mobile { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .app-identificacao-mobile strong { overflow-wrap: anywhere; max-width: 100%; }
+}
+
+.app-marca-simbolo { display: block; width: 42px; height: 42px; flex-shrink: 0; }
+@media (max-width: 480px) { .app-marca-simbolo { width: 34px; height: 34px; } .app-marca { gap: 8px; } }
+
+.app-menu-lateral .app-identificacao .app-identificacao-nome,
+.app-identificacao-mobile .app-identificacao-nome {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  width: auto;
+  min-height: 44px;
+  margin: 0;
+  padding: 4px 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #102d60;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.app-identificacao-nome .app-identificacao-avatar { font-size: 24px; flex-shrink: 0; }
+.app-identificacao-nome span { color: inherit; font-size: inherit; overflow-wrap: anywhere; }
+.app-identificacao-nome:hover { text-decoration: underline; text-underline-offset: 3px; }
+.app-identificacao-nome:focus-visible { outline: 3px solid #b49a60; outline-offset: 3px; }
+.app-menu-lateral .app-identificacao .app-identificacao-nome, .app-identificacao-mobile .app-identificacao-nome { font-size: 18px; }
+.app-identificacao-nome .app-identificacao-avatar { font-size: 28px; }
+
+.app-identificacao-nome img.app-identificacao-avatar { display: block; width: 44px; height: 44px; object-fit: contain; flex-shrink: 0; }

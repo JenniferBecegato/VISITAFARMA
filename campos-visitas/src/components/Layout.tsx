@@ -1,4 +1,5 @@
-import { useConta } from '../services/conta';
+import farmaceuticaAvatar from '../assets/farmaceutica-avatar.png';
+
 import iconeHistorico from '../assets/menu/historico.svg';
 import iconeInicio from '../assets/menu/inicio.svg';
 import iconeAgenda from '../assets/menu/agenda.svg';
@@ -12,7 +13,7 @@ import { useState, type ReactNode } from 'react';
 import './Layout.css';
 
 import type { Identificacao } from '../services/identificacao';
-import { exportarBackup } from '../services/backup';
+
 import type { ControleLembretes } from '../hooks/useLembretes';
 
 export type Pagina =
@@ -53,14 +54,15 @@ const itensMenu: {
 export default function Layout({
   notificacoes,
   children,
+  identificacao,
   alterarIdentificacao,
-  prepararBackup,
+
   paginaAtual,
   navegar
 }: LayoutProps) {
-  const { usuarioId } = useConta();
-  const [backupMensagem, setBackupMensagem] = useState('');
-  const [exportando, setExportando] = useState(false);
+
+
+
   const [menuAberto, setMenuAberto] = useState(false);
 
   function mudarPagina(pagina: Pagina) {
@@ -72,6 +74,12 @@ export default function Layout({
     <div className="app-layout">
       <header className="app-cabecalho">
         <div className="app-marca">
+          <svg className="app-marca-simbolo" viewBox="0 0 72 72" role="img" aria-label="Farmácia Campos">
+            <path fill="#b49a60" d="M23 0h18a6 6 0 0 1 6 6v18H43C32 24 23 15 23 4Z" />
+            <path fill="#fff" d="M0 24h21a3 3 0 0 1 3 3v14c0 4 2 7 6 7H20C9 48 0 39 0 24Z" />
+            <path fill="#fff" d="M42 24h6c13 0 24 11 24 24H51a3 3 0 0 1-3-3V31c0-4-2-7-6-7Z" />
+            <path fill="#b49a60" d="M23 48h12c7 0 12 5 12 12s-5 12-12 12-12-5-12-12Z" />
+          </svg>
 
           <div>
             <strong>CAMPOS VISITAS</strong>
@@ -102,15 +110,7 @@ export default function Layout({
       </header>
 
       <aside className={`app-menu-lateral ${menuAberto ? 'aberto' : ''}`}>
-        <div className="app-identificacao"><button className="app-identificacao-link" type="button" title="Voltar à página de login" onClick={() => void alterarIdentificacao()}>Alterar identificação</button></div>
-          <button title="Baixar uma cópia dos dados deste aparelho em arquivo JSON" className="app-backup" type="button" disabled={exportando} onClick={async () => {
-            setExportando(true); setBackupMensagem('');
-            try {
-              if (!await prepararBackup()) throw new Error('Salvamento pendente');
-              await exportarBackup(usuarioId); setBackupMensagem('Backup exportado. Guarde o arquivo em um local seguro.'); }
-            catch { setBackupMensagem('Erro ao exportar o backup. Tente novamente.'); }
-            finally { setExportando(false); }
-          }}>{exportando ? 'Exportando...' : 'Exportar backup'}</button>
+        <div className="app-identificacao"><button className="app-identificacao-nome" type="button" title="Voltar à página de login" onClick={() => void alterarIdentificacao()}><img className="app-identificacao-avatar" src={farmaceuticaAvatar} alt="" /><span>{identificacao.nome}</span></button></div>
         <nav aria-label="Menu principal">
           {itensMenu.map(item => (
             <button
@@ -129,9 +129,10 @@ export default function Layout({
 
       <main className="app-conteudo">
         <div className="app-identificacao-mobile">
-          <button className="app-identificacao-link" type="button" title="Voltar à página de login" onClick={() => void alterarIdentificacao()}>Alterar identificação</button>
+          
+          <button className="app-identificacao-nome" type="button" title="Voltar à página de login" onClick={() => void alterarIdentificacao()}><img className="app-identificacao-avatar" src={farmaceuticaAvatar} alt="" /><span>{identificacao.nome}</span></button>
         </div>
-        {backupMensagem && <p role="status">{backupMensagem}</p>}
+
         {children}
       </main>
 

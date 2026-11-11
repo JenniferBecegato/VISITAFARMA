@@ -58,9 +58,9 @@ export default function Secretarias() {
         <label>Telefone<input type="tel" value={dados.telefone} onChange={e => setDados({ ...dados, telefone: e.target.value })} /></label>
         <label>Local de trabalho<input value={dados.localTrabalho} onChange={e => setDados({ ...dados, localTrabalho: e.target.value })} /></label>
         <label>Observações<textarea value={dados.observacoes} onChange={e => setDados({ ...dados, observacoes: e.target.value })} /></label>
-      </div><fieldset className="cadastro-vinculos"><legend>Médicos vinculados *</legend>
+      </div><fieldset className="cadastro-vinculos"><legend>Médicos vinculados{!editando && ' *'}</legend>
         {!medicos?.length && <p>Cadastre um médico antes de cadastrar sua secretária.</p>}
-        {medicos?.map(m => <label className="cadastro-opcao" key={m.id}><input type="checkbox" checked={dados.medicoIds.includes(m.id)}
+        {editando ? dados.medicoIds.map(id => <p key={id}>{medicos?.find(m => m.id === id)?.nome ?? 'Médico indisponível'}</p>) : medicos?.map(m => <label className="cadastro-opcao" key={m.id}><input type="checkbox" checked={dados.medicoIds.includes(m.id)}
           onChange={e => setDados(completarContato({ ...dados, medicoIds: e.target.checked ? [...dados.medicoIds, m.id] : dados.medicoIds.filter(id => id !== m.id) }))} />{m.nome}</label>)}
       </fieldset>{erro && <p className="medicos-erro" role="alert">{erro}</p>}
       <div className="medicos-acoes"><button type="button" onClick={() => setAberto(false)}>Cancelar</button>

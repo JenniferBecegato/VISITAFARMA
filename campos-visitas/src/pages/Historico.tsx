@@ -1,3 +1,4 @@
+import { correspondeBuscaMedico } from '../utils/texto';
 import { useConta } from '../services/conta';
 import { useEffect, useState, type FormEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -24,6 +25,8 @@ function HistoricoDoAno({ ano }: { ano: number }) {
   const [fim, setFim] = useState(ultimo);
   const [periodo, setPeriodo] = useState({ inicio: primeiro, fim: ultimo });
   const [erro, setErro] = useState('');
+  const [medico, setMedico] = useState('');
+  const [medicoAplicado, setMedicoAplicado] = useState('');
   const dados = useLiveQuery(async () => {
     const [visitas, medicos, secretarias, produtos, vinculos] = await Promise.all([
       db.visitas.where('usuarioId').equals(usuarioId).toArray(),
@@ -34,16 +37,17 @@ function HistoricoDoAno({ ano }: { ano: number }) {
     ]);
     return { visitas, medicos, secretarias, produtos, vinculos };
   }, []);
-  const lista = filtrarHistorico(dados?.visitas ?? [], ano, periodo.inicio, periodo.fim);
+  const lista = filtrarHistorico(dados?.visitas ?? [], ano, periodo.inicio, periodo.fim).filter(v => correspondeBuscaMedico(dados?.medicos.find(m => m.id === v.medicoId)?.nome ?? '', medicoAplicado));
   function buscar(e: FormEvent) {
     e.preventDefault();
     if (inicio > fim) { setErro('A data inicial deve ser anterior ou igual à data final.'); return; }
-    setErro(''); setPeriodo({ inicio, fim });
+    setErro(''); setPeriodo({ inicio, fim }); setMedicoAplicado(medico);
   }
   return <div className="medicos-pagina historico-pagina">
-    <header className="medicos-cabecalho"><div><h1>Histórico</h1><p>Eventos de {ano}. Consulte os registros por período.</p></div></header>
+    <header className="medicos-cabecalho"><div><h1>Histórico</h1><p>Eventos de {ano}. Consulte os registros por nome do médico ou período.</p></div></header>
     <section className="medicos-card">
-      <form className="historico-filtros" onSubmit={buscar}>
+      <form className="historico-filtros" role="search" aria-label="Pesquisar histórico" onSubmit={buscar}>
+        <label>Nome do médico<input type="search" placeholder="Digite o nome do médico" value={medico} onChange={e => { setMedico(e.target.value); if (!e.target.value.trim()) setMedicoAplicado(''); }} /></label>
         <label>De<input required type="date" min={primeiro} max={ultimo} value={inicio} onChange={e => setInicio(e.target.value)} /></label>
         <label>Até<input required type="date" min={primeiro} max={ultimo} value={fim} onChange={e => setFim(e.target.value)} /></label>
         <button className="medicos-botao-principal" type="submit">Buscar</button>
@@ -52,7 +56,7 @@ function HistoricoDoAno({ ano }: { ano: number }) {
       {erro && <p role="alert" className="medicos-erro">{erro}</p>}
     </section>
     <section className="medicos-card"><h2>Histórico ({lista.length})</h2>
-      {!dados ? <p>Carregando histórico...</p> : !lista.length ? <p className="medicos-vazio">Nenhum evento encontrado neste período.</p> :
+      {!dados ? <p>Carregando histórico...</p> : !lista.length ? <p className="medicos-vazio">Nenhum evento encontrado para os filtros informados.</p> :
         <table className="historico-tabela"><thead><tr><th>Data / hora</th><th>Médico</th><th>Secretária</th><th>Produto / assunto</th><th>Situação</th></tr></thead>
           <tbody>{lista.map(v => {
             const produtos = v.produtosAssuntos || dados.vinculos.filter(x => x.visitaId === v.id && !x.excluidoEm)

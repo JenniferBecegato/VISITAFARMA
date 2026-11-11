@@ -78,3 +78,9 @@
   .login-card .login-primeiro, .login-card > .login-google { grid-column: 2; }
   .login-card > form { grid-row: 1 / 4; }
 }
+
+.login-senha-campo { position: relative; display: block; }
+.login-card .login-senha-campo input { padding-right: 52px; }
+.login-card .login-senha-olho { position: absolute; top: 2px; right: 2px; display: grid; place-items: center; width: 44px; height: calc(100% - 4px); min-height: 0; margin: 0; padding: 0; background: transparent; color: #182f60; border-radius: 7px; }
+.login-card .login-senha-olho:hover { background: #edf2f8; }
+.login-senha-campo input::-ms-reveal { display: none; }

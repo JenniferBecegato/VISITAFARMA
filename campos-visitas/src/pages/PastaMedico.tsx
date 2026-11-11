@@ -1,3 +1,4 @@
+import { useMesAtual } from '../hooks/useMesAtual';
 import { useConta } from '../services/conta';
 import { formulariosPorData } from '../utils/formularios';
 import './PastaMedico.css';
@@ -32,6 +33,7 @@ export default function PastaMedico({
   abrirFormulario
 }: PastaMedicoProps) {
   const { usuarioId } = useConta();
+  const mesAtual = useMesAtual();
 
 
   const medico = useLiveQuery(
@@ -95,8 +97,8 @@ export default function PastaMedico({
     );
   }
 
-  const formulariosOrdenados = formulariosPorData(formularios, visitas);
-  const visitasOrdenadas = [...visitas].sort((a, b) =>
+  const formulariosOrdenados = formulariosPorData(formularios, visitas).filter(item => item.data.startsWith(mesAtual.slice(0, 4) + '-'));
+  const visitasOrdenadas = visitas.filter(v => v.data.startsWith(mesAtual + '-')).sort((a, b) =>
     `${b.data}T${b.horaInicio}`.localeCompare(
       `${a.data}T${a.horaInicio}`
     )
@@ -114,7 +116,7 @@ export default function PastaMedico({
           padding: 0
         }}
       >
-        ← Voltar para médicos
+        ← Voltar
       </button>
 
       <section className="medicos-card">
@@ -164,7 +166,7 @@ export default function PastaMedico({
 
         {visitasOrdenadas.length === 0 ? (
           <p className="medicos-vazio">
-            Nenhuma visita cadastrada para este médico.
+            Nenhuma visita cadastrada para este médico neste mês.
           </p>
         ) : (
           <div className="inicio-lista">
@@ -223,7 +225,7 @@ export default function PastaMedico({
 
         {formulariosOrdenados.length === 0 ? (
           <p className="medicos-vazio">
-            Nenhum formulário preenchido.
+            Nenhum formulário preenchido neste ano. Consulte anos anteriores pela pesquisa no menu Formulários.
           </p>
         ) : (
           formulariosOrdenados.map(({ formulario, data }) => (

@@ -10,6 +10,7 @@ import logoCampos from '../assets/logo-campos.png';
 export default function Login({ entrar }: { entrar: (conta: Conta) => void }) {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
+  const [mostrarSenha, setMostrarSenha] = useState(false);
   const [erro, setErro] = useState('');
   const [aviso, setAviso] = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -19,6 +20,8 @@ export default function Login({ entrar }: { entrar: (conta: Conta) => void }) {
   const [emailCadastro, setEmailCadastro] = useState('');
   const [senhaCadastro, setSenhaCadastro] = useState('');
   const [confirmacao, setConfirmacao] = useState('');
+  const [mostrarSenhaCadastro, setMostrarSenhaCadastro] = useState(false);
+  const [mostrarConfirmacao, setMostrarConfirmacao] = useState(false);
   const [erroCadastro, setErroCadastro] = useState('');
   const [emails] = useState(lerEmailsLogin);
   const modal = useRef<HTMLDialogElement>(null);
@@ -81,7 +84,19 @@ export default function Login({ entrar }: { entrar: (conta: Conta) => void }) {
       } else {
         const { data, error } = await supabase.auth.signUp({ email: emailCadastro.trim(), password: senhaCadastro,
           options: { data: { nome: nome.trim(), unidade }, emailRedirectTo: window.location.origin + window.location.pathname } });
-        if (error) throw new Error('Não foi possível cadastrar. Verifique os dados e tente novamente. A senha deve atender às regras do serviço.');
+        if (error) {
+          const mensagens: Record<string, string> = {
+            weak_password: 'A senha não atende às regras do servidor. Detalhes: ' + error.message,
+            signup_disabled: 'O cadastro de novas contas está desativado no Supabase. A administração precisa habilitá-lo.',
+            user_already_exists: 'Este e-mail já possui uma conta. Entre com sua senha ou solicite a recuperação do acesso.',
+            email_exists: 'Este e-mail já possui uma conta. Entre com sua senha ou solicite a recuperação do acesso.',
+            over_email_send_rate_limit: 'O limite de envio de e-mails foi atingido. Aguarde antes de tentar novamente.',
+            over_request_rate_limit: 'Muitas tentativas de cadastro. Aguarde antes de tentar novamente.',
+            email_address_invalid: 'O servidor não aceitou este endereço de e-mail. Confira o endereço informado.',
+            unexpected_failure: 'O servidor não conseguiu concluir o cadastro. Detalhes: ' + error.message,
+          };
+          throw new Error(mensagens[error.code ?? ''] ?? ('Não foi possível cadastrar: ' + error.message));
+        }
         setSenhaCadastro(''); setConfirmacao('');
         if (data.session && data.user) concluir(await carregarConta(supabase, data.user));
         else { setEmail(emailCadastro.trim()); setAviso('Confira seu e-mail para confirmar o cadastro. Se já tiver uma conta, entre com sua senha.'); modal.current?.close(); }
@@ -103,6 +118,7 @@ export default function Login({ entrar }: { entrar: (conta: Conta) => void }) {
   }
   function abrirCadastro() {
     setCompletar(false); setErroCadastro(''); setNome(''); setUnidade('');
+    setMostrarSenhaCadastro(false); setMostrarConfirmacao(false);
     setEmailCadastro(email); setSenhaCadastro(''); setConfirmacao(''); modal.current?.showModal();
   }
   return <main className="login-pagina"><section className="login-card">
@@ -111,7 +127,15 @@ export default function Login({ entrar }: { entrar: (conta: Conta) => void }) {
     <form onSubmit={enviar}><fieldset disabled={enviando} style={{ border: 0, padding: 0, margin: 0 }}>
       <label>Login (e-mail)<input type="email" autoComplete="username" list={email.trim() ? 'emails-login' : undefined} required value={email} onChange={e => setEmail(e.target.value)} /></label>
       <datalist id="emails-login">{emails.filter(item => item.startsWith(email.trim().toLowerCase())).map(item => <option key={item} value={item} />)}</datalist>
-      <label>Senha<input type="password" autoComplete="current-password" required value={senha} onChange={e => setSenha(e.target.value)} /></label>
+      <label>Senha<span className="login-senha-campo">
+        <input type={mostrarSenha ? 'text' : 'password'} autoComplete="current-password" required value={senha} onChange={e => setSenha(e.target.value)} />
+        <button type="button" className="login-senha-olho" aria-label={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'} title={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'} aria-pressed={mostrarSenha} onClick={() => setMostrarSenha(valor => !valor)}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" />
+            {mostrarSenha && <path d="m3 3 18 18" />}
+          </svg>
+        </button>
+      </span></label>
       {erro && <p role="alert">{erro}</p>}
       {aviso && <p role="status">{aviso}</p>}
       {!configurado && <p role="alert">A conexão com o Supabase ainda não está configurada.</p>}
@@ -128,8 +152,24 @@ export default function Login({ entrar }: { entrar: (conta: Conta) => void }) {
         <label>Unidade<select required value={unidade} onChange={e => setUnidade(e.target.value)}><option value="">Selecione a unidade</option>{UNIDADES.map(item => <option key={item}>{item}</option>)}</select></label>
         {!completar && <>
           <label>E-mail<input type="email" autoComplete="email" required value={emailCadastro} onChange={e => setEmailCadastro(e.target.value)} /></label>
-          <label>Senha<input type="password" autoComplete="new-password" required minLength={6} value={senhaCadastro} onChange={e => setSenhaCadastro(e.target.value)} /></label>
-          <label>Confirmar senha<input type="password" autoComplete="new-password" required minLength={6} value={confirmacao} onChange={e => setConfirmacao(e.target.value)} /></label>
+          <label>Senha<span className="login-senha-campo">
+            <input type={mostrarSenhaCadastro ? 'text' : 'password'} autoComplete="new-password" required minLength={6} value={senhaCadastro} onChange={e => setSenhaCadastro(e.target.value)} />
+            <button type="button" className="login-senha-olho" aria-label={mostrarSenhaCadastro ? 'Ocultar Senha' : 'Mostrar Senha'} title={mostrarSenhaCadastro ? 'Ocultar senha' : 'Mostrar senha'} aria-pressed={mostrarSenhaCadastro} onClick={() => setMostrarSenhaCadastro(valor => !valor)}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" />
+                {mostrarSenhaCadastro && <path d="m3 3 18 18" />}
+              </svg>
+            </button>
+          </span></label>
+          <label>Confirmar senha<span className="login-senha-campo">
+            <input type={mostrarConfirmacao ? 'text' : 'password'} autoComplete="new-password" required minLength={6} value={confirmacao} onChange={e => setConfirmacao(e.target.value)} />
+            <button type="button" className="login-senha-olho" aria-label={mostrarConfirmacao ? 'Ocultar Confirmar senha' : 'Mostrar Confirmar senha'} title={mostrarConfirmacao ? 'Ocultar senha' : 'Mostrar senha'} aria-pressed={mostrarConfirmacao} onClick={() => setMostrarConfirmacao(valor => !valor)}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" />
+                {mostrarConfirmacao && <path d="m3 3 18 18" />}
+              </svg>
+            </button>
+          </span></label>
         </>}
         {erroCadastro && <p role="alert">{erroCadastro}</p>}
         <button type="submit" disabled={!configurado}>{enviando ? 'Aguarde…' : completar ? 'Salvar cadastro' : 'Cadastrar'}</button>

@@ -1,3 +1,4 @@
+import { aniversariosNoAno } from '../utils/aniversarios';
 import { datasNoDia, datasNoMes, legendaDatas, type TipoData } from '../utils/feriados';
 import { rotuloStatusVisita } from '../utils/statusVisita';
 import { useState } from 'react';
@@ -14,7 +15,8 @@ export default function CalendarioVisitas({ visitas, medicos, selecionado, selec
   const ano = mesAtual.getFullYear(), mes = mesAtual.getMonth();
   const titulo = mesAtual.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
   const hoje = dataLocal();
-  const datasDoMes = datasNoMes(ano, mes);
+  const aniversarios = aniversariosNoAno(medicos, ano);
+  const datasDoMes = [...datasNoMes(ano, mes), ...aniversarios.filter(item => Number(item.data.slice(5, 7)) === mes + 1)].sort((a, b) => a.data.localeCompare(b.data) || a.nome.localeCompare(b.nome));
   function mover(delta: number) {
     const proximo = new Date(ano, mes + delta, 1);
     setMesAtual(proximo); selecionar(dataLocal(proximo));
@@ -35,7 +37,7 @@ export default function CalendarioVisitas({ visitas, medicos, selecionado, selec
           aria-pressed={dia === selecionado} onClick={() => selecionar(dia)} />
         <div className="calendario-dia-topo"><span className="calendario-numero">{Number(dia.slice(-2))}</span>
           <button type="button" className="calendario-agendar" aria-label={`Agendar visita em ${dia.split('-').reverse().join('/')}`} onClick={() => { selecionar(dia); agendar(dia); }}>+</button></div>
-        {datasNoDia(dia).map(item => <span key={`${item.nome}-${item.tipo}`} className={`calendario-data calendario-data-dia ${item.tipo}`}
+        {[...datasNoDia(dia), ...aniversarios.filter(item => item.data === dia)].map(item => <span key={`${item.nome}-${item.tipo}`} className={`calendario-data calendario-data-dia ${item.tipo}`}
           title={`${item.nome} · ${legendaDatas[item.tipo]}`}><span className="calendario-data-nome">{item.nome}</span><span className="calendario-data-mobile">●</span></span>)}
         {visitasNaData(visitas, dia).length > 0 && <span className="calendario-resumo-mobile"
           aria-label={`${visitasNaData(visitas, dia).length} ${visitasNaData(visitas, dia).length === 1 ? "visita" : "visitas"}`}>

@@ -45,6 +45,7 @@ const dadosIniciais: DadosFormulario = {
   produtosSelecionados: [],
   amostrasDeixadas: '',
   materiaisPromocionais: '',
+  observacoesConteudo: '',
   nivelInteresse: undefined,
   duvidasComentarios: '',
   anotacoesConcorrencia: '',
@@ -69,8 +70,6 @@ export default function FormularioVisita({
   const { usuarioId } = useConta();
   const produtos = useLiveQuery(() => db.produtos.where('usuarioId').equals(usuarioId)
     .filter(p => p.ativo && !p.excluidoEm).sortBy('nome'), []);
-  const secretarias = useLiveQuery(() => db.secretarias.where('usuarioId').equals(usuarioId)
-    .filter(s => !s.excluidoEm && (s.medicoIds ?? [s.medicoId]).includes(medicoId)).sortBy('nome'), [medicoId]);
   const [editandoConsulta, setEditandoConsulta] = useState(false);
   const [confirmarVolta, setConfirmarVolta] = useState(false);
   const [pagina, setPagina] = useState(1);
@@ -313,7 +312,7 @@ useEffect(() => {
   async function avancar() {
     const sucesso = await salvar(false);
 
-    if (sucesso && pagina < 6) {
+    if (sucesso && pagina < 4) {
       setPagina(anterior => anterior + 1);
     }
   }
@@ -338,7 +337,7 @@ useEffect(() => {
       </div>}
       <h1>Relatório de Visita Médica</h1>
 
-      {!consultaCompleta && <p>Página {pagina} de 6</p>}
+      {!consultaCompleta && <p>Página {pagina} de 4</p>}
       {estadoSalvamento !== 'inicial' && (
         <p role="status" aria-live="polite" className={`salvamento-${estadoSalvamento}`}>
           {estadoSalvamento === 'salvando' ? 'Salvando...' :
@@ -348,7 +347,7 @@ useEffect(() => {
 
       <progress hidden={consultaCompleta}
         value={pagina}
-        max={6}
+        max={4}
         style={{ width: '100%', marginBottom: 20 }}
       />
 
@@ -410,23 +409,7 @@ useEffect(() => {
             />
           </label>
 
-          <label>
-            Perfil
-            <select
-              value={dados.perfilMedico || ''}
-              onChange={e => alterar(
-                'perfilMedico',
-                e.target.value
-                  ? e.target.value as DadosFormulario['perfilMedico']
-                  : undefined
-              )}
-            >
-              <option value="">Selecione</option>
-              <option value="promotor">Promotor da marca</option>
-              <option value="neutro">Neutro</option>
-              <option value="concorrencia">Focado na concorrência</option>
-            </select>
-          </label>
+
         </section>
       )}
 
@@ -454,12 +437,12 @@ useEffect(() => {
             <button type="button" onClick={() => alterar('produtosSelecionados',
               (dados.produtosSelecionados ?? []).filter(p => p.produtoId !== item.produtoId))}>Remover {item.nome}</button>
           </div>)}
-          <p>Você também pode informar outros produtos e amostras nos campos abaixo. Se não deixou amostras, escreva “Nenhuma”.</p>
+
 
           <label>
             Tema trabalhado
             <textarea
-              value={dados.temaTrabalhado}
+              value={dados.temaTrabalhado ?? ''}
               onChange={e => alterar(
                 'temaTrabalhado',
                 e.target.value
@@ -470,7 +453,7 @@ useEffect(() => {
           <label>
             Produtos abordados
             <textarea
-              value={dados.produtosAbordados}
+              value={dados.produtosAbordados ?? ''}
               onChange={e => alterar(
                 'produtosAbordados',
                 e.target.value
@@ -481,22 +464,18 @@ useEffect(() => {
           <label>
             Amostras deixadas (produto e quantidade)
             <textarea
-              value={dados.amostrasDeixadas}
+              value={dados.amostrasDeixadas ?? ''}
               onChange={e => alterar(
                 'amostrasDeixadas',
                 e.target.value
               )}
             />
           </label>
-
           <label>
-            Materiais promocionais entregues
+            Observações
             <textarea
-              value={dados.materiaisPromocionais || ''}
-              onChange={e => alterar(
-                'materiaisPromocionais',
-                e.target.value
-              )}
+              value={dados.observacoesConteudo ?? ''}
+              onChange={e => alterar('observacoesConteudo', e.target.value)}
             />
           </label>
         </section>
@@ -504,133 +483,8 @@ useEffect(() => {
 
       {!erroCarregamento && (consultaCompleta || pagina === 4) && (
         <section className="medicos-card">
-          <h2>Feedback e receptividade</h2>
-
-          <label>
-            Nível de interesse
-            <select
-              value={dados.nivelInteresse || ''}
-              onChange={e => alterar(
-                'nivelInteresse',
-                e.target.value
-                  ? e.target.value as DadosFormulario['nivelInteresse']
-                  : undefined
-              )}
-            >
-              <option value="">Selecione</option>
-              <option value="alto">Alto</option>
-              <option value="medio">Médio</option>
-              <option value="baixo">Baixo</option>
-            </select>
-          </label>
-
-          <label>
-            Principais dúvidas, objeções ou comentários
-            <textarea
-              value={dados.duvidasComentarios || ''}
-              onChange={e => alterar(
-                'duvidasComentarios',
-                e.target.value
-              )}
-            />
-          </label>
-
-          <label>
-            Anotações sobre concorrência ou tratamento atual
-            <textarea
-              value={dados.anotacoesConcorrencia || ''}
-              onChange={e => alterar(
-                'anotacoesConcorrencia',
-                e.target.value
-              )}
-            />
-          </label>
-        </section>
-      )}
-
-      {!erroCarregamento && (consultaCompleta || pagina === 5) && (
-        <section className="medicos-card">
-          <h2>Próximos passos e planos de ação</h2>
-
-          <label>
-            Acordados / Solicitações do médico
-            <textarea
-              value={dados.acordadosSolicitacoes || ''}
-              onChange={e => alterar(
-                'acordadosSolicitacoes',
-                e.target.value
-              )}
-            />
-          </label>
-
-          <label>
-            Objetivo / Tema para próxima visita
-            <textarea
-              value={dados.objetivoProximaVisita || ''}
-              onChange={e => alterar(
-                'objetivoProximaVisita',
-                e.target.value
-              )}
-            />
-          </label>
-
-          <label>
-            Já ficou agendado?
-            <select
-              value={
-                dados.proximaVisitaAgendada === undefined
-                  ? ''
-                  : String(dados.proximaVisitaAgendada)
-              }
-              onChange={e => alterar(
-                'proximaVisitaAgendada',
-                e.target.value === ''
-                  ? undefined
-                  : e.target.value === 'true'
-              )}
-            >
-              <option value="">Selecione</option>
-              <option value="true">Sim</option>
-              <option value="false">Não</option>
-            </select>
-          </label>
-
-          <label>
-            Data prevista para retorno
-            <input
-              type="date"
-              value={dados.dataProximoRetorno || ''}
-              onChange={e => alterar(
-                'dataProximoRetorno',
-                e.target.value
-              )}
-            />
-          </label>
-
-          <label>
-            Horário previsto
-            <input
-              type="time"
-              value={dados.horaProximoRetorno || ''}
-              onChange={e => alterar(
-                'horaProximoRetorno',
-                e.target.value
-              )}
-            />
-          </label>
-        </section>
-      )}
-
-      {!erroCarregamento && (consultaCompleta || pagina === 6) && (
-        <section className="medicos-card">
           <h2>Observações de relacionamento</h2>
-          {!!secretarias?.length && <label>Secretárias vinculadas ao médico
-            <select value="" onChange={e => {
-              const secretaria = secretarias.find(s => s.id === e.target.value);
-              if (secretaria) alterar('nomeSecretaria', secretaria.nome);
-            }}><option value="">Selecionar contato cadastrado</option>
-              {secretarias.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
-            </select></label>}
+
 
           <label>
             Nome da secretária
@@ -647,11 +501,12 @@ useEffect(() => {
             Anotações adicionais
             <textarea
               value={dados.anotacoesAdicionais || ''}
+              placeholder={!consultaCompleta || editandoConsulta ? 'Aniversário, hobbies, horários preferidos...' : undefined}
               onChange={e => alterar(
                 'anotacoesAdicionais',
                 e.target.value
               )}
-              placeholder="Aniversário, hobbies, horários preferidos..."
+
             />
           </label>
         </section>
@@ -691,7 +546,7 @@ useEffect(() => {
 
         
 
-        {pagina < 6 ? (
+        {pagina < 4 ? (
           <button
             type="button"
             className="medicos-botao-principal"

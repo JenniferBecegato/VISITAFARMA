@@ -343,3 +343,18 @@
 .medicos-cabecalho > .medicos-botao-principal {
   flex:0 0 auto; align-self:center; min-height:36px; padding:8px 12px; font-size:12px; border-radius:8px; white-space:nowrap;
 }
+
+.formularios-busca > label { flex: 0 1 180px; }
+@media(max-width:650px) { .formularios-busca > label { flex: 1 1 100%; } }
+
+.formularios-busca .formularios-medico-busca label {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 15px;
+  line-height: 1.4;
+  font-weight: 600;
+}
+.formularios-busca .formularios-medico-busca input {
+  margin-top: 0;
+}

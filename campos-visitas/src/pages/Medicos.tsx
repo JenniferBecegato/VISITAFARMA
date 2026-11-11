@@ -22,6 +22,7 @@ const formularioInicial = {
   clinica: '',
   endereco: '',
   telefone: '',
+  dataAniversario: '',
   observacoes: ''
 };
 
@@ -142,6 +143,7 @@ export default function Medicos({ abrirPasta }: MedicosProps) {
       clinica: medico.clinica || '',
       endereco: medico.endereco || '',
       telefone: medico.telefone || '',
+      dataAniversario: medico.dataAniversario || '',
       observacoes: medico.observacoes || ''
     });
 
@@ -253,6 +255,13 @@ export default function Medicos({ abrirPasta }: MedicosProps) {
 
             </div>
 
+            <div className="medicos-grid" style={{ marginBottom: 16 }}>
+              <label>
+                Data de aniversário
+                <input type="date" value={formulario.dataAniversario}
+                  onChange={e => atualizarCampo('dataAniversario', e.target.value)} />
+              </label>
+            </div>
             <fieldset className="medico-secretarias"><legend>Secretárias do médico</legend>
               <fieldset className="medico-opcoes-secretarias">
                 <legend>Tem mais de uma secretária?</legend>

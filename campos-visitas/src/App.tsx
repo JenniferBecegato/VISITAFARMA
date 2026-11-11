@@ -88,7 +88,31 @@ function AplicativoConta({ identificacao, sair }: { identificacao: Conta; sair: 
     return saidaFormularioRef.current ? saidaFormularioRef.current() : true;
   }
 
+  const historicoNavegacao = useRef<Array<{
+    pagina: Pagina;
+    medicoId: string | null;
+    formulario: FormularioSelecionado | null;
+    visita: Visita | undefined;
+    rolagem: number;
+  }>>([]);
+
+  function guardarOrigem() {
+    historicoNavegacao.current.push({ pagina: paginaAtual, medicoId: medicoSelecionadoId,
+      formulario: formularioSelecionado, visita: visitaEdicao, rolagem: window.scrollY });
+  }
+
+  function voltarAnterior() {
+    const origem = historicoNavegacao.current.pop();
+    setErroNavegacao('');
+    setFormularioSelecionado(origem?.formulario ?? null);
+    setMedicoSelecionadoId(origem?.medicoId ?? null);
+    setVisitaEdicao(origem?.visita);
+    setPaginaAtual(origem?.pagina ?? 'inicio');
+    window.requestAnimationFrame(() => window.scrollTo(0, origem?.rolagem ?? 0));
+  }
+
   function trocarPagina(pagina: Pagina) {
+    guardarOrigem();
     setVisitaEdicao(undefined);
     setErroNavegacao('');
     setFormularioSelecionado(null);
@@ -97,22 +121,20 @@ function AplicativoConta({ identificacao, sair }: { identificacao: Conta; sair: 
   }
 
   function abrirPastaMedico(medicoId: string) {
+    guardarOrigem();
     setFormularioSelecionado(null);
     setMedicoSelecionadoId(medicoId);
     setPaginaAtual('medicos');
   }
 
-  function voltarParaMedicos() {
-    setFormularioSelecionado(null);
-    setMedicoSelecionadoId(null);
-    setPaginaAtual('medicos');
-  }
+
 
   function abrirFormulario(
     medicoId: string,
     visitaId: string,
     formularioId?: string
   ) {
+    guardarOrigem();
     setMedicoSelecionadoId(medicoId);
 
     setFormularioSelecionado({
@@ -124,12 +146,10 @@ function AplicativoConta({ identificacao, sair }: { identificacao: Conta; sair: 
     setPaginaAtual('formularios');
   }
 
-  function voltarParaPasta() {
-    setFormularioSelecionado(null);
-    setPaginaAtual('medicos');
-  }
+
 
   function editarVisita(visita: Visita) {
+    guardarOrigem();
     setVisitaEdicao(visita); setPaginaAtual('agenda');
   }
 
@@ -157,7 +177,7 @@ function AplicativoConta({ identificacao, sair }: { identificacao: Conta; sair: 
           visitaId={formularioSelecionado.visitaId}
           formularioId={formularioSelecionado.formularioId}
           consultaCompleta={Boolean(formularioSelecionado.formularioId)}
-          voltar={voltarParaPasta}
+          voltar={voltarAnterior}
           registrarSaida={registrarSaida}
         />
       );
@@ -175,7 +195,7 @@ function AplicativoConta({ identificacao, sair }: { identificacao: Conta; sair: 
           return (
             <PastaMedico
               medicoId={medicoSelecionadoId}
-              voltar={voltarParaMedicos}
+              voltar={voltarAnterior}
               abrirFormulario={abrirFormulario}
             />
           );

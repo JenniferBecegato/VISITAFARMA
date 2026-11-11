@@ -40,6 +40,7 @@ export interface Medico {
   endereco?: string;
   telefone?: string;
   email?: string;
+  dataAniversario?: string;
   secretariaId?: string;
   secretariaIds?: string[];
   observacoes?: string;
@@ -182,6 +183,7 @@ export interface FormularioVisita {
   produtosSelecionados?: { produtoId: string; nome: string; quantidadeAmostras: number }[];
   amostrasDeixadas: string;
   materiaisPromocionais?: string;
+  observacoesConteudo?: string;
 
   // Página 4
   nivelInteresse?: 'alto' | 'medio' | 'baixo';
