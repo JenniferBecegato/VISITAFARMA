@@ -9,7 +9,9 @@ import Layout, { type Pagina } from './components/Layout';
 import Inicio from './pages/Inicio';
 import Login from './pages/Login';
 import { ContextoConta, lerConta, limparConta, type Conta } from './services/conta';
-import { CHAVE_AUTH, supabase } from './services/supabase';
+import { androidNativo, CHAVE_AUTH, supabase } from './services/supabase';
+import { escutarRetornoAndroid } from './services/loginAndroid';
+import { RETORNO_GOOGLE_AGENDA } from './services/googleAgenda';
 import Sincronizacao from './components/Sincronizacao';
 import Agenda from './pages/Agenda';
 import Formularios from './pages/Formularios';
@@ -33,7 +35,12 @@ function AplicativoConta({ identificacao, sair }: { identificacao: Conta; sair: 
   const usuarioId = identificacao.usuarioId;
   const lembretes = useLembretes(usuarioId);
   const [paginaAtual, setPaginaAtual] =
-    useState<Pagina>('inicio');
+    useState<Pagina>(() => sessionStorage.getItem(RETORNO_GOOGLE_AGENDA) ? 'agenda' : 'inicio');
+  useEffect(() => { sessionStorage.removeItem(RETORNO_GOOGLE_AGENDA); }, []);
+  const [erroRetornoGoogle, setErroRetornoGoogle] = useState('');
+  useEffect(() => {
+    if (androidNativo && supabase) return escutarRetornoAndroid(supabase, setErroRetornoGoogle);
+  }, []);
 
   const [medicoSelecionadoId, setMedicoSelecionadoId] =
     useState<string | null>(null);
@@ -233,6 +240,7 @@ function AplicativoConta({ identificacao, sair }: { identificacao: Conta; sair: 
     <Layout notificacoes={lembretes} paginaAtual={paginaAtual} navegar={navegar} prepararBackup={prepararBackup} identificacao={identificacao} alterarIdentificacao={alterarIdentificacao}>
       <Sincronizacao sessaoInvalida={sair} />
       {erroNavegacao && <p role="alert">{erroNavegacao}</p>}
+      {erroRetornoGoogle && <p role="alert">{erroRetornoGoogle}</p>}
       {renderizarPagina()}
     </Layout>
   );
@@ -252,8 +260,12 @@ export default function App() {
     }).then(terminar, terminar);
   }, []);
   useEffect(() => {
-    const assinatura = supabase?.auth.onAuthStateChange((evento) => {
-      if (evento === 'SIGNED_OUT') { limparConta(); setConta(null); void desativarNotificacoes().catch(() => undefined); }
+    const assinatura = supabase?.auth.onAuthStateChange((evento, sessao) => {
+      const contaLocal = lerConta();
+      const mudouConta = sessao && contaLocal && sessao.user.id !== contaLocal.usuarioId;
+      if (evento === 'SIGNED_OUT' || mudouConta) {
+        limparConta(); setConta(null); void desativarNotificacoes().catch(() => undefined);
+      }
     });
     const outraAba = (evento: StorageEvent) => {
       if (evento.key === 'campos-conta-offline') setConta(lerConta());

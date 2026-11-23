@@ -15,3 +15,10 @@ O banco local mantém os dados de teste separados das contas reais. A atualizaç
 ## Perfil cadastral — 19/10/2026
 
 A migração `202610190002_perfil_usuario.sql` foi aplicada: nome e unidade são obrigatórios, o aplicativo só consulta o próprio perfil e o cadastro administrativo cria o perfil junto da conta Auth. Jennifer permanece cadastrada como Jennifer, unidade Washington Luiz. A tela de entrada possui somente login (e-mail) e senha.
+## Login com Google no APK Android
+
+1. No Google Cloud, crie um cliente OAuth do tipo **Aplicativo da Web**. Em **URIs de redirecionamento autorizados**, coloque `https://mwammirefzjwcbmbryzj.supabase.co/auth/v1/callback`. Se usar o Google somente no APK, deixe **Origens JavaScript autorizadas** em branco. Se também publicar a versão web, adicione a origem HTTPS dela nesse campo.
+2. No Supabase, habilite o provedor **Google** e informe o Client ID e o Client Secret do Google Cloud. Se o OAuth estiver em modo de teste, adicione a conta do celular à lista de usuários de teste no Google Cloud.
+3. No Supabase, em **Authentication → URL Configuration → Redirect URLs**, adicione `com.campos.visitas://auth/callback`. O APK usa esse endereço explicitamente ao iniciar o login.
+4. Confira `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY` no `.env.local`. Rode `npm run android:sync` e abra a pasta `android` no Android Studio para gerar o APK. No celular, instale o APK, toque em **Continuar com Google** e confirme que o login volta ao Campos Visitas.
+

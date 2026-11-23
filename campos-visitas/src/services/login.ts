@@ -3,9 +3,20 @@ import { UNIDADES } from './identificacao';
 import type { Conta } from './conta';
 
 export async function autenticarConta(cliente: SupabaseClient, email: string, senha: string): Promise<Conta> {
-  const { data, error } = await cliente.auth.signInWithPassword({ email: email.trim(), password: senha });
-  if (error || !data.user) throw new Error('Não foi possível entrar. Confira e-mail, senha e conexão.');
-  return carregarConta(cliente, data.user);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const autenticar = async () => {
+    const { data, error } = await cliente.auth.signInWithPassword({ email: email.trim(), password: senha });
+    if (error?.code === 'email_not_confirmed') throw new Error('Confirme seu e-mail antes de entrar. Confira a caixa de entrada e o spam.');
+    if (error?.code === 'invalid_credentials') throw new Error('E-mail ou senha incorretos.');
+    if (error?.status === 429) throw new Error('Muitas tentativas de acesso. Aguarde alguns minutos e tente novamente.');
+    if (error || !data.user) throw new Error('Não foi possível entrar. Confira e-mail, senha e conexão.');
+    return carregarConta(cliente, data.user);
+  };
+  try {
+    return await Promise.race([autenticar(), new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error('O servidor de login não respondeu. Confira se o celular tem acesso à internet e tente novamente.')), 20000);
+    })]);
+  } finally { clearTimeout(timer); }
 }
 
 export class PerfilIncompleto extends Error {

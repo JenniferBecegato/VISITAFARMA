@@ -4,9 +4,9 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 const ts = require('typescript');
-function modulo(arquivo, dependencias = {}) {
+function modulo(arquivo, dependencias = {}, globais = {}) {
   const exports = {};
-  const contexto = { exports, Date, require: nome => dependencias[nome] };
+  const contexto = { exports, Date, require: nome => dependencias[nome], ...globais };
   vm.createContext(contexto);
   vm.runInContext(ts.transpileModule(fs.readFileSync(path.join(__dirname, arquivo), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
@@ -14,6 +14,84 @@ function modulo(arquivo, dependencias = {}) {
   return exports;
 }
 const calendario = modulo('../src/utils/calendario.ts', { './relatorios': modulo('../src/utils/relatorios.ts') });
+
+test('Google Agenda distingue API desabilitada de permissão de leitura ausente', async () => {
+  for (const [reason, classe, mensagem] of [
+    ['SERVICE_DISABLED', 'ErroGoogleAgenda', /Habilite a Google Calendar API/],
+    ['accessNotConfigured', 'ErroGoogleAgenda', /Habilite a Google Calendar API/],
+    ['ACCESS_TOKEN_SCOPE_INSUFFICIENT', 'PermissaoGoogleAgenda', /conceda as permissões solicitadas/],
+  ]) {
+    const google = modulo('../src/services/googleAgenda.ts', {}, {
+      URL, URLSearchParams, AbortSignal,
+      fetch: async () => ({
+        ok: false,
+        status: 403,
+        json: async () => ({
+          error: reason === 'accessNotConfigured' ? { errors: [{ reason }] } : { details: [{ reason }] },
+        }),
+      }),
+    });
+    await assert.rejects(
+      google.listarAgendasGoogle('token', new AbortController().signal),
+      erro => erro.constructor === google[classe] && mensagem.test(erro.message),
+    );
+  }
+});
+
+test('Google Agenda cria um evento privado com ID estável e duração padrão', async () => {
+  const pedidos = [];
+  const google = modulo('../src/services/googleAgenda.ts', {}, {
+    TextEncoder, AbortSignal,
+    fetch: async (url, pedido) => {
+      pedidos.push({ url, ...pedido, body: JSON.parse(pedido.body) });
+      return pedidos.length === 1 ? { ok: true, status: 200 } : { ok: false, status: 409 };
+    },
+  });
+  const visita = { id: 'visita-1', data: '2026-10-31', horaInicio: '23:45', observacoes: 'Privado' };
+  await google.criarEventoGoogle('token', 'agenda@example.com', visita);
+  await google.criarEventoGoogle('token', 'agenda@example.com', visita);
+  assert.match(pedidos[0].url, /agenda%40example.com\/events$/);
+  assert.equal(pedidos[0].method, 'POST');
+  assert.match(pedidos[0].body.id, /^[0-9a-v]{5,1024}$/);
+  assert.deepEqual(pedidos[0].body, pedidos[1].body);
+  assert.equal(pedidos[0].body.visibility, 'private');
+  assert.equal(pedidos[0].body.start.timeZone, 'America/Sao_Paulo');
+  assert.equal(pedidos[0].body.end.dateTime, '2026-11-01T00:15:00');
+  assert.equal(pedidos[0].body.observacoes, undefined);
+});
+
+test('Google Agenda percorre páginas e respeita o fim exclusivo dos compromissos', async () => {
+  const urls = [];
+  const google = modulo('../src/services/googleAgenda.ts', {
+    '../utils/relatorios': modulo('../src/utils/relatorios.ts'),
+  }, {
+    URL, URLSearchParams, AbortSignal,
+    fetch: async url => {
+      urls.push(url.href);
+      return {
+        ok: true,
+        json: async () => url.searchParams.has('pageToken') ? {
+          items: [{
+            id: 'noturno', start: { dateTime: '2026-10-02T22:00:00' },
+            end: { dateTime: '2026-10-03T00:00:00' },
+          }],
+        } : {
+          nextPageToken: 'mais',
+          items: [{
+            id: 'dia-inteiro', start: { date: '2026-09-30' }, end: { date: '2026-10-02' },
+          }],
+        },
+      };
+    },
+  });
+  const dias = await google.listarEventosGoogle('token', 'agenda@example.com', '2026-10', new AbortController().signal);
+  assert.match(urls[0], /agenda%40example.com\/events/);
+  assert.match(urls[0], /singleEvents=true/);
+  assert.match(urls[1], /pageToken=mais/);
+  assert.equal(dias['2026-10-01'][0].horario, 'Dia inteiro');
+  assert.equal(dias['2026-10-02'][0].id, 'noturno');
+  assert.equal(dias['2026-10-03'], undefined);
+});
 test('calendário alinha dias da semana e trata fevereiro bissexto e virada do ano', () => {
   const outubro = calendario.diasDoMes(2026, 9);
   assert.equal(outubro.length % 7, 0); assert.equal(outubro[0], null);

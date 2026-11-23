@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { configurado, supabase } from '../services/supabase';
+import { Browser } from '@capacitor/browser';
+import { androidNativo, configurado, supabase } from '../services/supabase';
+import { escutarRetornoAndroid, RETORNO_ANDROID } from '../services/loginAndroid';
 import { guardarConta, type Conta } from '../services/conta';
 import { autenticarConta, carregarConta, PerfilIncompleto } from '../services/login';
 import { lembrarEmail, lerEmailsLogin } from '../services/emailsLogin';
@@ -56,6 +58,14 @@ export default function Login({ entrar }: { entrar: (conta: Conta) => void }) {
     return () => { ativo = false; clearTimeout(timer); assinatura.data.subscription.unsubscribe(); };
   }, []);
 
+  useEffect(() => {
+    if (!androidNativo || !supabase) return;
+    return escutarRetornoAndroid(supabase, mensagem => {
+      setErro(mensagem);
+      setErroCadastro(mensagem);
+    });
+  }, []);
+
   async function enviar(evento: FormEvent) {
     evento.preventDefault();
     if (enviando || !supabase) return;
@@ -83,7 +93,8 @@ export default function Login({ entrar }: { entrar: (conta: Conta) => void }) {
         concluir(await carregarConta(supabase, data.user));
       } else {
         const { data, error } = await supabase.auth.signUp({ email: emailCadastro.trim(), password: senhaCadastro,
-          options: { data: { nome: nome.trim(), unidade }, emailRedirectTo: window.location.origin + window.location.pathname } });
+          options: { data: { nome: nome.trim(), unidade },
+            emailRedirectTo: androidNativo ? RETORNO_ANDROID : window.location.origin + window.location.pathname } });
         if (error) {
           const mensagens: Record<string, string> = {
             weak_password: 'A senha não atende às regras do servidor. Detalhes: ' + error.message,
@@ -109,10 +120,16 @@ export default function Login({ entrar }: { entrar: (conta: Conta) => void }) {
     if (!navigator.onLine) { setErroCadastro('Conecte-se à internet para continuar com Google.'); setErro('Conecte-se à internet para continuar com Google.'); return; }
     setEnviando(true); setErro(''); setErroCadastro('');
     try {
-      const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: {
-        redirectTo: window.location.origin + window.location.pathname, queryParams: { prompt: 'select_account' }
+      const { data, error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: {
+        redirectTo: androidNativo ? RETORNO_ANDROID : window.location.origin + window.location.pathname,
+        skipBrowserRedirect: androidNativo,
+        queryParams: { prompt: 'select_account' },
       } });
       if (error) throw error;
+      if (androidNativo) {
+        if (!data.url) throw new Error('Endereço de login indisponível.');
+        await Browser.open({ url: data.url });
+      }
     } catch { const mensagem = 'Não foi possível iniciar o acesso com Google. Verifique se o provedor está habilitado no Supabase.'; setErroCadastro(mensagem); setErro(mensagem); }
     finally { setEnviando(false); }
   }
@@ -124,7 +141,7 @@ export default function Login({ entrar }: { entrar: (conta: Conta) => void }) {
   return <main className="login-pagina"><section className="login-card">
     <div className="login-marca"><img src={logoCampos} alt="Farmácia Campos" /></div>
     <h1>Campos Visitas Farmacêuticas</h1>
-    <form onSubmit={enviar}><fieldset disabled={enviando} style={{ border: 0, padding: 0, margin: 0 }}>
+    <form onSubmit={enviar} onInvalid={e => setErro((e.target as HTMLInputElement).validationMessage)} aria-busy={enviando}><fieldset disabled={enviando} style={{ border: 0, padding: 0, margin: 0 }}>
       <label>Login (e-mail)<input type="email" autoComplete="username" list={email.trim() ? 'emails-login' : undefined} required value={email} onChange={e => setEmail(e.target.value)} /></label>
       <datalist id="emails-login">{emails.filter(item => item.startsWith(email.trim().toLowerCase())).map(item => <option key={item} value={item} />)}</datalist>
       <label>Senha<span className="login-senha-campo">
@@ -140,6 +157,7 @@ export default function Login({ entrar }: { entrar: (conta: Conta) => void }) {
       {aviso && <p role="status">{aviso}</p>}
       {!configurado && <p role="alert">A conexão com o Supabase ainda não está configurada.</p>}
       <button type="submit" disabled={!configurado}>{enviando ? 'Entrando…' : 'Entrar'}</button>
+      {enviando && <p role="status" aria-live="polite">Conectando ao servidor. Aguarde até 20 segundos.</p>}
     </fieldset></form>
     <p className="login-primeiro">Primeiro acesso? <button type="button" className="login-link" onClick={abrirCadastro} disabled={enviando || !configurado}>Novo cadastro</button></p>
     <button type="button" className="login-google" onClick={() => void google()} disabled={enviando || !configurado}>Continuar com Google</button>

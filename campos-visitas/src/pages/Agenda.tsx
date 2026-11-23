@@ -12,6 +12,8 @@ import {
 
 import './Agenda.css';
 import CalendarioVisitas from '../components/CalendarioVisitas';
+import { useGoogleAgenda } from '../components/useGoogleAgenda';
+import { ErroGoogleAgenda } from '../services/googleAgenda';
 import { alterarSituacaoVisita, salvarAgendamento } from '../database/visitas';
 
 
@@ -59,6 +61,32 @@ export default function Agenda({ visitaInicial, abrirPasta, abrirRelatorio }: {
   const travaSalvar = useRef(false);
   const [atualizadoEmEdicao, setAtualizadoEmEdicao] = useState(visitaInicial?.atualizadoEm);
   const [diaSelecionado, setDiaSelecionado] = useState(visitaInicial?.data ?? obterDataLocal());
+  const google = useGoogleAgenda(diaSelecionado.slice(0, 7));
+  const [avisoGoogle, setAvisoGoogle] = useState<{ mensagem: string; erro: boolean }>();
+  const [publicando, setPublicando] = useState(false);
+  const travaGoogle = useRef(false);
+
+  function chaveEnvio(visitaId: string) {
+    return `campos-google-agenda-envio:${usuarioId}:${visitaId}`;
+  }
+
+  async function enviarAoGoogle(visita: Visita, destino: string) {
+    if (travaGoogle.current) return;
+    travaGoogle.current = true;
+    setPublicando(true);
+    try {
+      localStorage.setItem(chaveEnvio(visita.id), destino);
+      await google.publicar(visita, destino);
+      localStorage.removeItem(chaveEnvio(visita.id));
+      setAvisoGoogle({ mensagem: 'Visita incluída no Google Agenda.', erro: false });
+    } catch (falha) {
+      const detalhe = falha instanceof ErroGoogleAgenda ? falha.message : 'Verifique a conexão e tente enviar novamente.';
+      setAvisoGoogle({ mensagem: `Visita salva no VisitaFarma. O envio ao Google Agenda ficou pendente. ${detalhe}`, erro: true });
+    } finally {
+      travaGoogle.current = false;
+      setPublicando(false);
+    }
+  }
   const [mostrarFormulario, setMostrarFormulario] =
     useState(Boolean(visitaInicial));
 
@@ -159,12 +187,17 @@ export default function Agenda({ visitaInicial, abrirPasta, abrirRelatorio }: {
 
   async function salvarVisita(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (travaSalvar.current) return;
+    if (travaSalvar.current || travaGoogle.current) return;
     travaSalvar.current = true; setSalvando(true); setErro('');
     try {
-      await salvarAgendamento(usuarioId, { medicoId, data, horaInicio, horaFim, local, secretariaId, observacoes, produtosAssuntos },
+      const visita = await salvarAgendamento(usuarioId, { medicoId, data, horaInicio, horaFim, local, secretariaId, observacoes, produtosAssuntos },
         editandoId ?? undefined, atualizadoEmEdicao);
       setDiaSelecionado(data); limparFormulario();
+      setAvisoGoogle(undefined);
+      if (!editandoId && google.destino) await enviarAoGoogle(visita, google.destino);
+      else if (!editandoId && google.agenda) {
+        setAvisoGoogle({ mensagem: 'Visita salva no VisitaFarma. A agenda Google selecionada permite apenas leitura.', erro: false });
+      }
     } catch (error) {
       setErro(error instanceof Error ? error.message : 'Não foi possível salvar a visita.');
     } finally { travaSalvar.current = false; setSalvando(false); }
@@ -196,7 +229,7 @@ export default function Agenda({ visitaInicial, abrirPasta, abrirRelatorio }: {
             {editandoId ? 'Editar visita' : 'Agendar visita'}
           </h2>
 
-          <form onSubmit={salvarVisita}><fieldset disabled={salvando} className="cadastro-campos">
+          <form onSubmit={salvarVisita}><fieldset disabled={salvando || publicando} className="cadastro-campos">
             <div className="medicos-grid">
               <label>
                 Médico *
@@ -311,7 +344,8 @@ export default function Agenda({ visitaInicial, abrirPasta, abrirRelatorio }: {
       )}
 
       {erroSituacao && <p role="alert" className="medicos-erro">{erroSituacao}</p>}
-      <CalendarioVisitas key={diaSelecionado.slice(0, 7)} visitas={visitas ?? []} medicos={medicos ?? []} selecionado={diaSelecionado}
+      {avisoGoogle && <p role={avisoGoogle.erro ? 'alert' : 'status'}>{avisoGoogle.mensagem}</p>}
+      <CalendarioVisitas visitas={visitas ?? []} medicos={medicos ?? []} selecionado={diaSelecionado} google={google}
         selecionar={setDiaSelecionado} agendar={dia => {
           limparFormulario(); setData(dia); setMostrarFormulario(true); window.scrollTo({ top: 0, behavior: 'smooth' });
         }} />
@@ -326,7 +360,9 @@ export default function Agenda({ visitaInicial, abrirPasta, abrirRelatorio }: {
           </p>
         ) : (
           <div className="agenda-lista">
-            {visitasOrdenadas.map(visita => (
+            {visitasOrdenadas.map(visita => {
+              const destino = localStorage.getItem(chaveEnvio(visita.id));
+              return (
               <article className="agenda-item" key={visita.id}>
                 <div className="agenda-item-horario">
                   {visita.horaInicio}
@@ -359,11 +395,14 @@ export default function Agenda({ visitaInicial, abrirPasta, abrirRelatorio }: {
                       <button type="button" disabled={!!atualizandoId} onClick={() => editarVisita(visita)}>Editar</button>}
                     <button type="button" disabled={!!atualizandoId} className="agenda-botao-formulario"
                       onClick={() => abrirRelatorio(visita)}>Formulário</button>
+                    {destino && visita.status !== 'cancelada' && <button type="button" disabled={publicando || salvando}
+                      onClick={() => { if (!travaSalvar.current) void enviarAoGoogle(visita, destino); }}>Reenviar ao Google Agenda</button>}
                   </div>
                 </div>
                 
               </article>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>

@@ -63,6 +63,18 @@
 .calendario-data.comemorativo { background:#f8e8df; color:#8b5039; border-color:#bd8267; }
 .calendario-data-dia { display:block; position:relative; pointer-events:none; margin-top:4px; overflow-wrap:anywhere; }
 .calendario-data-mobile { display:none; }
+.calendario-google-controles { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:12px 0; font-size:13px; }
+.calendario.medicos-card .calendario-google-controles label {
+  display:flex; flex-direction:row; align-items:center; gap:8px; min-width:0; margin:0;
+}
+.calendario-google-controles label > span { white-space:nowrap; }
+.calendario.medicos-card .calendario-google-controles :is(select, button) {
+  box-sizing:border-box; height:44px; max-width:100%; padding:6px 10px; border:1px solid #bdc8da;
+  border-radius:6px; background:#fff; color:#182f60; font:inherit;
+}
+.calendario.medicos-card .calendario-google-controles select { width:auto; min-width:0; }
+.calendario-google-evento { background:#e0f3ed; color:#12584b; border-color:#287e69; }
+.calendario-google-resumo { color:#12584b; }
 .calendario-datas-mes { margin-top:20px; }
 .calendario-datas-mes h3 { font-size:14px; color:#182f60; }
 .calendario-datas-mes ul { list-style:none; padding:0; margin:0; }

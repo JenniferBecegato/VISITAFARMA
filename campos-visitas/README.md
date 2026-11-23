@@ -1,5 +1,20 @@
 # React + TypeScript + Vite
 
+## Abrir no celular pela rede local
+
+Execute `npm start` no computador. O comando compila o app e inicia o servidor
+na porta 4173, aceitando conexões da rede local.
+
+Com o celular no mesmo Wi-Fi, abra `http://IP-DO-COMPUTADOR:4173`.
+O terminal mostra os endereços disponíveis. Mantenha o servidor em execução.
+Se o Windows bloquear a conexão, permita o Node.js na rede privada no Firewall.
+
+Para desenvolver com atualização automática, use `npm run dev`.
+
+O acesso HTTP pelo IP permite testar as telas, mas a ativação de notificações
+exige contexto seguro (HTTPS). Login com Google e confirmação de e-mail também
+dependem de autorizar o endereço de retorno no Supabase.
+
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
 Currently, two official plugins are available:

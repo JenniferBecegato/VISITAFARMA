@@ -1,10 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
+import { Capacitor } from '@capacitor/core';
 const url = import.meta.env.VITE_SUPABASE_URL;
 const chave = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 export const configurado = Boolean(url && chave);
 export const CHAVE_AUTH = 'campos-supabase-auth';
+export const androidNativo = Capacitor.getPlatform() === 'android';
 export const supabase = configurado ? createClient(url, chave, {
-  auth: { persistSession: true, autoRefreshToken: true, storageKey: CHAVE_AUTH },
+  auth: {
+    persistSession: true, autoRefreshToken: true, storageKey: CHAVE_AUTH,
+    ...(androidNativo && { flowType: 'pkce', detectSessionInUrl: false }),
+  },
   global: { fetch: (input, init) => fetch(input, { ...init,
     signal: init?.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(15000)]) : AbortSignal.timeout(15000) }) }
 }) : null;

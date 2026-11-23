@@ -5,31 +5,40 @@ const vm = require('node:vm');
 const ts = require('typescript');
 const path = require('node:path');
 
-function ambiente(perfil = { nome: 'Jennifer', unidade: 'Washington Luiz' }) {
+function ambiente(perfil = { nome: 'Jennifer', unidade: 'Washington Luiz' }, pendente = false) {
   const exports = {};
   const chamadas = [];
   let erroPerfil = null;
   let erroAuth = null;
   const cliente = {
-    auth: { signInWithPassword: async dados => { chamadas.push(dados); return { data: { user: { id: 'jennifer-id', email: 'jennifer@hotmail.com' } }, error: erroAuth }; } },
+    auth: { signInWithPassword: async dados => { chamadas.push(dados); if (pendente) return new Promise(() => {}); return { data: { user: { id: 'jennifer-id', email: 'jennifer@hotmail.com' } }, error: erroAuth }; } },
     from: tabela => { assert.equal(tabela, 'usuarios'); return { select: campos => {
       assert.equal(campos, 'nome, unidade');
       return { eq: (campo, id) => { assert.equal(campo, 'id'); assert.equal(id, 'jennifer-id');
         return { maybeSingle: async () => ({ data: perfil, error: erroPerfil }) }; } };
     } }; }
   };
-  const sandbox = { exports, require: () => ({ UNIDADES: ['Dr. Gurgel', 'Washington Luiz'] }) };
+  const sandbox = { exports, setTimeout: fn => setTimeout(fn, 10), clearTimeout,
+    require: () => ({ UNIDADES: ['Dr. Gurgel', 'Washington Luiz'] }) };
   vm.createContext(sandbox);
   vm.runInContext(ts.transpileModule(fs.readFileSync(path.join(__dirname, '../src/services/login.ts'), 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
   }).outputText, sandbox);
   return { entrar: () => exports.autenticarConta(cliente, ' jennifer@hotmail.com ', 'senha-teste'), chamadas,
-    erroPerfil: () => { erroPerfil = new Error('indisponível'); }, erroAuth: () => { erroAuth = new Error('senha inválida'); } };
+    erroPerfil: () => { erroPerfil = new Error('indisponível'); }, erroAuth: (code) => { erroAuth = Object.assign(new Error('senha inválida'), { code }); } };
 }
 test('login usa somente credenciais e lê nome/unidade da tabela sem gravar perfil', async () => {
   const a = ambiente(); const conta = await a.entrar();
   assert.equal(conta.nome, 'Jennifer'); assert.equal(conta.unidade, 'Washington Luiz');
   assert.equal(conta.usuarioId, 'jennifer-id'); assert.equal(a.chamadas[0].email, 'jennifer@hotmail.com');
+});
+
+test('login informa confirmação pendente, credenciais inválidas e servidor sem resposta', async () => {
+  const a = ambiente(); a.erroAuth('email_not_confirmed');
+  await assert.rejects(a.entrar(), /Confirme seu e-mail/);
+  const b = ambiente(); b.erroAuth('invalid_credentials');
+  await assert.rejects(b.entrar(), /E-mail ou senha incorretos/);
+  await assert.rejects(ambiente(undefined, true).entrar(), /servidor de login não respondeu/);
 });
 test('login impede entrada com perfil ausente ou incompleto e apresenta falhas de autenticação/consulta', async () => {
   for (const perfil of [null, { nome: '', unidade: 'Washington Luiz' }, { nome: 'Jennifer', unidade: null },

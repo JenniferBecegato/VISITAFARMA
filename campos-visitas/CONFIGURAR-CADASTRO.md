@@ -12,6 +12,13 @@ O app permite cadastro por e-mail/senha e autenticação Google pelo Supabase. N
 
 Documentação: https://supabase.com/docs/guides/auth/social-login/auth-google
 
+## Google Agenda
+
+1. Habilitar a Google Calendar API no mesmo projeto Google Cloud que fornece o cliente OAuth do Supabase. Em Google Auth Platform, na seção Data Access, incluir os escopos `https://www.googleapis.com/auth/calendar.calendarlist.readonly` e `https://www.googleapis.com/auth/calendar.events`.
+2. Na tela Calendário, selecionar **Conectar Google Agenda** e autorizar a leitura usando a mesma conta Google do VisitaFarma. Confirmar que o seletor lista as agendas da conta e que os compromissos aparecem na data correspondente, inclusive os recorrentes e os de dia inteiro.
+3. Testar a conexão na web e no Android, com o retorno nativo `com.campos.visitas://auth/callback` liberado no Supabase. Quando a autorização expirar, conectar novamente na tela Calendário.
+4. Para testar o envio de novas visitas, clicar em **Autorizar novamente** se o acesso anterior era apenas de leitura. Selecionar uma agenda com permissão de escrita e salvar uma nova visita. O calendário recebe um evento privado chamado **Visita farmacêutica**, sem convidados. Se o envio falhar, usar **Reenviar ao Google Agenda** na visita salva.
+
 ## Sugestões de e-mail
 
 Após um login concluído, o endereço autenticado é guardado neste navegador (até dez endereços). Ao digitar um prefixo no login, o campo oferece os endereços correspondentes. Sair da conta preserva as sugestões. Limpar os dados do navegador remove o histórico. Endereços cadastrados em outros dispositivos não aparecem automaticamente: não há consulta pública à lista de usuários do banco.
