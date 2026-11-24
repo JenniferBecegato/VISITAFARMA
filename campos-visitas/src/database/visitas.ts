@@ -1,3 +1,5 @@
+import { gravarSecretariasDoMedico, type ContatoSecretaria } from './catalogos';
+import { normalizarNomeMedico } from '../utils/texto';
 import { db, dataAtual, gerarId, type Visita } from './database';
 export function validarMudancaSituacao(visita: Visita, status: 'realizada' | 'cancelada') {
   if (visita.excluidoEm) throw new Error('Visita não encontrada.');
@@ -20,15 +22,56 @@ export async function alterarSituacaoVisita(usuarioId: string, visitaId: string,
   });
 }
 
+export async function excluirVisita(usuarioId: string, visitaId: string) {
+  await db.transaction('rw', db.visitas, async () => {
+    const visita = await db.visitas.get(visitaId);
+    if (!visita || visita.usuarioId !== usuarioId) throw new Error('Visita não encontrada.');
+    if (visita.excluidoEm) return;
+    const agora = dataAtual();
+    await db.visitas.update(visitaId, { excluidoEm: agora, atualizadoEm: agora, sincronizacao: 'pendente' });
+  });
+}
+
 export type DadosAgendamento = Pick<Visita, 'medicoId' | 'data' | 'horaInicio' | 'horaFim' | 'local' | 'secretariaId' | 'observacoes' | 'produtosAssuntos'>;
-export async function salvarAgendamento(usuarioId: string, dados: DadosAgendamento, id?: string, atualizadoEmEsperado?: string) {
-  if (!dados.medicoId || !dados.data || !dados.horaInicio) throw new Error('Preencha médico, data e horário.');
+interface CadastroNaAgenda {
+  nomeMedico: string;
+  secretarias?: ContatoSecretaria[];
+}
+export async function salvarAgendamento(usuarioId: string, dados: DadosAgendamento, id?: string, atualizadoEmEsperado?: string,
+  cadastro?: CadastroNaAgenda) {
+  const nome = cadastro?.nomeMedico.trim().replace(/\s+/g, ' ') ?? '';
+  if ((!dados.medicoId && !nome) || !dados.data || !dados.horaInicio) throw new Error('Preencha médico, data e horário.');
   if (dados.horaFim && dados.horaFim <= dados.horaInicio) throw new Error('O horário final deve ser posterior ao inicial.');
   return db.transaction('rw', [db.visitas, db.medicos, db.secretarias, db.formularios, db.historicoReagendamentos, db.produtos], async () => {
-    const medico = await db.medicos.get(dados.medicoId);
+    let medico = dados.medicoId ? await db.medicos.get(dados.medicoId) : undefined;
+    if (!dados.medicoId && nome) {
+      const registros = await db.medicos.where('usuarioId').equals(usuarioId).toArray();
+      const iguais = registros.filter(m => !m.excluidoEm && normalizarNomeMedico(m.nome) === normalizarNomeMedico(nome));
+      if (iguais.length > 1) throw new Error('Há mais de um médico com esse nome. Escolha uma das sugestões.');
+      medico = iguais[0];
+      if (!medico) {
+        const agora = dataAtual();
+        medico = { id: gerarId(), usuarioId, nome, especialidade: '',
+          clinica: dados.local?.trim() || undefined, criadoEm: agora, atualizadoEm: agora, sincronizacao: 'pendente' };
+        await db.medicos.add(medico);
+      } else if (cadastro?.secretarias) {
+        throw new Error('Esse médico já está cadastrado. Selecione o nome na agenda para conferir as secretárias.');
+      }
+    }
     if (!medico || medico.usuarioId !== usuarioId || medico.excluidoEm) throw new Error('Selecione um médico válido.');
-    if (dados.secretariaId) {
-      const secretaria = await db.secretarias.get(dados.secretariaId);
+    let secretariaId = dados.secretariaId;
+    if (cadastro?.secretarias) {
+      await gravarSecretariasDoMedico(usuarioId, medico.id, cadastro.secretarias);
+      await db.medicos.update(medico.id, { atualizadoEm: dataAtual(), sincronizacao: 'pendente' });
+      secretariaId = (await db.medicos.get(medico.id))?.secretariaId;
+    } else if (cadastro) {
+      const contatos = await db.secretarias.where('usuarioId').equals(usuarioId).toArray();
+      const vinculados = contatos.filter(s => !s.excluidoEm && (s.medicoIds ?? [s.medicoId]).includes(medico.id));
+      const ordem = medico.secretariaIds ?? (medico.secretariaId ? [medico.secretariaId] : []);
+      secretariaId = ordem.find(id => vinculados.some(s => s.id === id)) ?? vinculados[0]?.id;
+    }
+    if (secretariaId) {
+      const secretaria = await db.secretarias.get(secretariaId);
       if (!secretaria || secretaria.usuarioId !== usuarioId || secretaria.excluidoEm ||
         !(secretaria.medicoIds ?? [secretaria.medicoId]).includes(medico.id)) throw new Error('Selecione uma secretária vinculada ao médico.');
     }
@@ -40,7 +83,7 @@ export async function salvarAgendamento(usuarioId: string, dados: DadosAgendamen
     }
     const reagendada = Boolean(anterior && (anterior.data !== dados.data || anterior.horaInicio !== dados.horaInicio));
     if (anterior?.status === 'realizada' && reagendada) throw new Error('Uma visita realizada não pode ser reagendada.');
-    if (anterior && anterior.medicoId !== dados.medicoId) {
+    if (anterior && anterior.medicoId !== medico.id) {
       const formularios = await db.formularios.where('visitaId').equals(anterior.id).toArray();
       if (formularios.some(f => f.usuarioId === usuarioId && !f.excluidoEm)) throw new Error('Esta visita já possui relatório. Mantenha o médico vinculado.');
     }
@@ -69,8 +112,8 @@ export async function salvarAgendamento(usuarioId: string, dados: DadosAgendamen
     if (anterior && reagendada) await db.historicoReagendamentos.add({ id: gerarId(), usuarioId, visitaId: anterior.id,
       dataAnterior: anterior.data, horaAnterior: anterior.horaInicio, dataNova: dados.data, horaNova: dados.horaInicio,
       alteradoEm: agora, sincronizacao: 'pendente' });
-    const visita: Visita = { ...anterior, ...dados, produtosAssuntos: nomesSalvos.join('; '), produtoAssuntoIds, id: anterior?.id ?? gerarId(), usuarioId,
-      horaFim: dados.horaFim || undefined, secretariaId: dados.secretariaId || undefined,
+    const visita: Visita = { ...anterior, ...dados, medicoId: medico.id, produtosAssuntos: nomesSalvos.join('; '), produtoAssuntoIds, id: anterior?.id ?? gerarId(), usuarioId,
+      horaFim: dados.horaFim || undefined, secretariaId: secretariaId || undefined,
       local: dados.local?.trim() || medico.clinica || undefined, observacoes: dados.observacoes?.trim(),
       status: reagendada ? 'reagendada' : anterior?.status ?? 'agendada', criadoEm: anterior?.criadoEm ?? agora,
       atualizadoEm: agora, sincronizacao: 'pendente', statusGoogle: 'pendente' };

@@ -3,6 +3,7 @@ import { Browser } from '@capacitor/browser';
 import { androidNativo, configurado, supabase } from '../services/supabase';
 import { escutarRetornoAndroid, RETORNO_ANDROID } from '../services/loginAndroid';
 import { guardarConta, type Conta } from '../services/conta';
+import { ESCOPOS_GOOGLE_AGENDA, RETORNO_GOOGLE_AGENDA } from '../services/googleAgenda';
 import { autenticarConta, carregarConta, PerfilIncompleto } from '../services/login';
 import { lembrarEmail, lerEmailsLogin } from '../services/emailsLogin';
 import { UNIDADES } from '../services/identificacao';
@@ -71,6 +72,7 @@ export default function Login({ entrar }: { entrar: (conta: Conta) => void }) {
     if (enviando || !supabase) return;
     if (!navigator.onLine) { setErro('O primeiro acesso exige internet.'); return; }
     setEnviando(true); setErro(''); setAviso('');
+    sessionStorage.removeItem(RETORNO_GOOGLE_AGENDA);
     try { concluir(await autenticarConta(supabase, email, senha)); }
     catch (e) {
       if (e instanceof PerfilIncompleto) { setCompletar(true); setErroCadastro(''); modal.current?.showModal(); }
@@ -120,17 +122,19 @@ export default function Login({ entrar }: { entrar: (conta: Conta) => void }) {
     if (!navigator.onLine) { setErroCadastro('Conecte-se à internet para continuar com Google.'); setErro('Conecte-se à internet para continuar com Google.'); return; }
     setEnviando(true); setErro(''); setErroCadastro('');
     try {
+      sessionStorage.setItem(RETORNO_GOOGLE_AGENDA, '1');
       const { data, error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: {
         redirectTo: androidNativo ? RETORNO_ANDROID : window.location.origin + window.location.pathname,
         skipBrowserRedirect: androidNativo,
-        queryParams: { prompt: 'select_account' },
+        scopes: ESCOPOS_GOOGLE_AGENDA,
+        queryParams: { prompt: 'select_account', include_granted_scopes: 'true' },
       } });
       if (error) throw error;
       if (androidNativo) {
         if (!data.url) throw new Error('Endereço de login indisponível.');
         await Browser.open({ url: data.url });
       }
-    } catch { const mensagem = 'Não foi possível iniciar o acesso com Google. Verifique se o provedor está habilitado no Supabase.'; setErroCadastro(mensagem); setErro(mensagem); }
+    } catch { sessionStorage.removeItem(RETORNO_GOOGLE_AGENDA); const mensagem = 'Não foi possível iniciar o acesso com Google. Verifique se o provedor está habilitado no Supabase.'; setErroCadastro(mensagem); setErro(mensagem); }
     finally { setEnviando(false); }
   }
   function abrirCadastro() {

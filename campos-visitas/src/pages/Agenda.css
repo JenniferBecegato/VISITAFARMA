@@ -361,3 +361,25 @@
 .agenda-produtos-sugestoes { display: flex; flex-direction: column; border: 1px solid #d9e1ed; border-radius: 8px; background: white; max-height: 220px; overflow-y: auto; margin-top: 4px; }
 .agenda-produtos-sugestoes button { text-align: left; min-height: 44px; padding: 10px 12px; border: 0; background: white; color: #182f60; overflow-wrap: anywhere; }
 .agenda-produtos-sugestoes button:hover, .agenda-produtos-sugestoes button:focus-visible { background: #edf4ff; }
+
+.agenda-botao-excluir {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-top: 12px;
+  padding: 0; background: transparent;
+  color: #aa2626;
+  border: 0;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.agenda-botao-excluir:hover:not(:disabled) {
+  background: #fff0f0;
+}
+
+.agenda-botao-excluir:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}

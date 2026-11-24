@@ -140,3 +140,30 @@ test('atualização do banco preserva snapshot dos testes e não os envia', asyn
   assert.equal(await db.filaSincronizacao.count(), 0);
   assert.equal((await db.produtos.get(p.id)).usuarioId, 'usuario-local-teste');
 });
+
+test('nova visita cadastra médico e secretárias, reutiliza o nome e reverte falhas', async () => {
+  const { db } = require('../src/database/database.ts');
+  const { salvarAgendamento } = require('../src/database/visitas.ts');
+  const conta = crypto.randomUUID();
+  const dados = { medicoId: '', data: '2026-11-24', horaInicio: '08:00' };
+  const salvar = (cadastro) => salvarAgendamento(conta, dados, undefined, undefined, cadastro);
+  await assert.rejects(salvar({
+    nomeMedico: 'Dr. José Silva', secretarias: [{ nome: 'Ana' }, { nome: 'Ána' }]
+  }), /nomes diferentes/);
+  assert.equal(await db.medicos.where('usuarioId').equals(conta).count(), 0);
+  assert.equal(await db.secretarias.where('usuarioId').equals(conta).count(), 0);
+  assert.equal(await db.visitas.where('usuarioId').equals(conta).count(), 0);
+
+  const visita = await salvar({
+    nomeMedico: ' Dr. José  Silva ', secretarias: [{ nome: 'Ana' }, { nome: 'Bia' }]
+  });
+  const medico = await db.medicos.get(visita.medicoId);
+  const contatos = await db.secretarias.bulkGet(medico.secretariaIds);
+  assert.equal(medico.nome, 'Dr. José Silva');
+  assert.deepEqual(contatos.map(c => c.nome), ['Ana', 'Bia']);
+  assert.equal(visita.secretariaId, contatos[0].id);
+  const retorno = await salvar({ nomeMedico: 'jose silva' });
+  assert.equal(retorno.medicoId, medico.id);
+  assert.equal(retorno.secretariaId, contatos[0].id);
+  assert.equal(await db.medicos.where('usuarioId').equals(conta).count(), 1);
+});

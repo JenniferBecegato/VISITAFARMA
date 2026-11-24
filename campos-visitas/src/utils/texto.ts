@@ -3,8 +3,12 @@ export function normalizarTexto(valor: string): string {
     .replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
 }
 
+export function normalizarNomeMedico(nome: string): string {
+  return normalizarTexto(nome).replace(/^(dr|dra|doutor|doutora)\.?\s+/, '');
+}
+
 export function nomesMedicosParecidos(a: string, b: string): boolean {
-  const limpar = (nome: string) => normalizarTexto(nome).replace(/^(dr|dra|doutor|doutora)\.?\s+/, '')
+  const limpar = (nome: string) => normalizarNomeMedico(nome)
     .split(' ').filter(p => !['de', 'da', 'do', 'das', 'dos'].includes(p));
   const x = limpar(a), y = limpar(b);
   if (!x.length || !y.length || x[0] !== y[0]) return false;

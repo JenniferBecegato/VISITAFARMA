@@ -44,16 +44,20 @@ test('Google Agenda cria um evento privado com ID estável e duração padrão',
     TextEncoder, AbortSignal,
     fetch: async (url, pedido) => {
       pedidos.push({ url, ...pedido, body: JSON.parse(pedido.body) });
-      return pedidos.length === 1 ? { ok: true, status: 200 } : { ok: false, status: 409 };
+      return pedidos.length === 2 ? { ok: false, status: 409 } : { ok: true, status: 200 };
     },
   });
   const visita = { id: 'visita-1', data: '2026-10-31', horaInicio: '23:45', observacoes: 'Privado' };
-  await google.criarEventoGoogle('token', 'agenda@example.com', visita);
-  await google.criarEventoGoogle('token', 'agenda@example.com', visita);
+  await google.criarEventoGoogle('token', 'agenda@example.com', visita, 'Dra. Ana Silva');
+  await google.criarEventoGoogle('token', 'agenda@example.com', visita, 'Dra. Ana Silva');
   assert.match(pedidos[0].url, /agenda%40example.com\/events$/);
   assert.equal(pedidos[0].method, 'POST');
   assert.match(pedidos[0].body.id, /^[0-9a-v]{5,1024}$/);
   assert.deepEqual(pedidos[0].body, pedidos[1].body);
+  assert.equal(pedidos[0].body.summary, 'Dra. Ana Silva');
+  assert.equal(pedidos[2].method, 'PATCH');
+  assert.equal(pedidos[2].url, pedidos[0].url + '/' + pedidos[0].body.id);
+  assert.deepEqual(pedidos[2].body, { summary: 'Dra. Ana Silva' });
   assert.equal(pedidos[0].body.visibility, 'private');
   assert.equal(pedidos[0].body.start.timeZone, 'America/Sao_Paulo');
   assert.equal(pedidos[0].body.end.dateTime, '2026-11-01T00:15:00');
@@ -214,4 +218,38 @@ test('histórico limita ao ano e período inclusivo, ordena horários e reinicia
   assert.equal(filtrarHistorico(visitas, 2026, '2026-10-16', '2026-10-16').map(v => v.id).join(','), 'tarde,cedo');
   assert.equal(filtrarHistorico(visitas, 2027, '2027-01-01', '2027-12-31').map(v => v.id).join(','), 'novo');
   assert.equal(visitas.length, 7);
+});
+
+test('excluir visita exige a conta proprietária e registra exclusão lógica', async () => {
+  const a = ambiente();
+  await a.db.visitas.put({ id: 'v', usuarioId: 'u', status: 'realizada' });
+  await assert.rejects(a.excluirVisita('outra', 'v'), /não encontrada/);
+  assert.equal((await a.db.visitas.get('v')).excluidoEm, undefined);
+  await a.excluirVisita('u', 'v');
+  await a.excluirVisita('u', 'v');
+  const visita = await a.db.visitas.get('v');
+  assert.equal(visita.excluidoEm, 'nova-versao');
+  assert.equal(visita.sincronizacao, 'pendente');
+});
+
+test('Google Agenda exclui pelo identificador da visita e aceita exclusão repetida', async () => {
+  const pedidos = [];
+  const respostas = [204, 404, 410, 403];
+  const google = modulo('../src/services/googleAgenda.ts', {}, {
+    TextEncoder, AbortSignal,
+    fetch: async (url, pedido) => {
+      pedidos.push({ url, ...pedido });
+      const status = respostas.shift();
+      return { ok: status === 204, status, json: async () => ({}) };
+    },
+  });
+  const excluir = () => google.excluirEventoGoogle('token', 'agenda@example.com', 'visita-1');
+  assert.equal(await excluir(), true);
+  assert.equal(await excluir(), false);
+  assert.equal(await excluir(), true);
+  await assert.rejects(excluir(), /HTTP 403/);
+  assert.equal(pedidos[0].method, 'DELETE');
+  assert.equal(pedidos[0].url,
+    'https://www.googleapis.com/calendar/v3/calendars/agenda%40example.com/events/' + google.idEventoGoogle('visita-1') + '?sendUpdates=all');
+  assert.equal(pedidos[0].body, undefined);
 });

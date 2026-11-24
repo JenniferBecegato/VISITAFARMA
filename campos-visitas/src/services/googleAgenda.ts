@@ -4,10 +4,10 @@ import { androidNativo, supabase } from './supabase';
 import { dataLocal } from '../utils/relatorios';
 import type { Visita } from '../database/database';
 
-const escopos = [
+export const ESCOPOS_GOOGLE_AGENDA = [
   'https://www.googleapis.com/auth/calendar.calendarlist.readonly',
   'https://www.googleapis.com/auth/calendar.events',
-];
+].join(' ');
 export const RETORNO_GOOGLE_AGENDA = 'campos-retorno-google-agenda';
 
 export async function autorizarGoogleAgenda(email: string) {
@@ -15,7 +15,7 @@ export async function autorizarGoogleAgenda(email: string) {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      scopes: escopos.join(' '),
+      scopes: ESCOPOS_GOOGLE_AGENDA,
       redirectTo: androidNativo ? RETORNO_ANDROID : window.location.origin + window.location.pathname,
       skipBrowserRedirect: true,
       queryParams: { login_hint: email, prompt: 'consent' },
@@ -74,24 +74,51 @@ export function idEventoGoogle(visitaId: string) {
   return 'visita' + Array.from(new TextEncoder().encode(visitaId), byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
-export async function criarEventoGoogle(token: string, agenda: string, visita: Pick<Visita, 'id' | 'data' | 'horaInicio' | 'horaFim'>) {
+export async function criarEventoGoogle(token: string, agenda: string, visita: Pick<Visita, 'id' | 'data' | 'horaInicio' | 'horaFim'>, nomeMedico: string) {
   const dateTime = `${visita.data}T${visita.horaInicio}:00`;
   const fimPadrao = new Date(Date.parse(`${dateTime}Z`) + 30 * 60_000).toISOString().slice(0, 19);
   const timeZone = 'America/Sao_Paulo';
-  const resposta = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(agenda)}/events`, {
+  const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(agenda)}/events`;
+  const id = idEventoGoogle(visita.id);
+  const summary = nomeMedico;
+  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+  const resposta = await fetch(url, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({
-      id: idEventoGoogle(visita.id),
-      summary: 'Visita farmacêutica',
+      id,
+      summary,
       visibility: 'private',
       start: { dateTime, timeZone },
       end: { dateTime: visita.horaFim ? `${visita.data}T${visita.horaFim}:00` : fimPadrao, timeZone },
     }),
     signal: AbortSignal.timeout(15000),
   });
-  // Uma tentativa anterior pode ter criado o evento antes de perder a resposta.
-  if (resposta.status !== 409) await verificarResposta(resposta);
+  if (resposta.status !== 409) {
+    await verificarResposta(resposta);
+    return;
+  }
+
+  // Reenvios também corrigem o título de eventos já criados.
+  const atualizacao = await fetch(`${url}/${id}`, {
+    method: 'PATCH',
+    headers,
+    body: JSON.stringify({ summary }),
+    signal: AbortSignal.timeout(15000),
+  });
+  await verificarResposta(atualizacao);
+}
+
+export async function excluirEventoGoogle(token: string, agenda: string, visitaId: string) {
+  const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(agenda)}/events/${idEventoGoogle(visitaId)}?sendUpdates=all`;
+  const resposta = await fetch(url, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(15000),
+  });
+  if (resposta.status === 404) return false;
+  if (resposta.status !== 410) await verificarResposta(resposta);
+  return true;
 }
 
 async function listar<T>(token: string, caminho: string, parametros: Record<string, string>, signal: AbortSignal) {

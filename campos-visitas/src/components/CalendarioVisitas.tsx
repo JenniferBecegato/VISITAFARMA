@@ -15,7 +15,7 @@ interface Props {
 export default function CalendarioVisitas({ visitas, medicos, selecionado, selecionar, agendar, google }: Props) {
   const mesAtual = new Date(`${selecionado}T12:00:00`);
   const ano = mesAtual.getFullYear(), mes = mesAtual.getMonth();
-  const idsVisitas = new Set(visitas.filter(visita => !visita.excluidoEm && visita.status !== 'cancelada')
+  const idsVisitas = new Set(visitas.filter(visita => visita.excluidoEm || visita.status !== 'cancelada')
     .map(visita => `${visita.data}:${idEventoGoogle(visita.id)}`));
   const compromissos = (dia: string) => (google.dias?.[dia] ?? []).filter(evento => !idsVisitas.has(`${dia}:${evento.id}`));
   const compromissosDoDia = compromissos(selecionado);
@@ -40,8 +40,8 @@ export default function CalendarioVisitas({ visitas, medicos, selecionado, selec
           {google.opcoes.map(item => <option key={item.id} value={item.id}>{item.summaryOverride || item.summary}</option>)}
         </select>
       </label> : null}
-      {(!google.carregando || google.opcoes) && <button type="button" disabled={google.autorizando}
-        onClick={() => void google.conectar()}>{google.opcoes?.length ? 'Autorizar novamente' : 'Conectar Google Agenda'}</button>}
+      {(!google.carregando && !google.opcoes?.length) && <button type="button" disabled={google.autorizando}
+        onClick={() => void google.conectar()}>Conectar Google Agenda</button>}
       {google.agenda && !google.podeCriar && <span>Esta agenda permite apenas leitura.</span>}
       {google.carregando && <span role="status">Carregando Google Agenda…</span>}
       {google.opcoes?.length === 0 && <span role="status">Nenhuma agenda disponível nesta conta Google.</span>}

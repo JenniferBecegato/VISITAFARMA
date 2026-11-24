@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useConta } from '../services/conta';
 import { supabase } from '../services/supabase';
 import {
-  autorizarGoogleAgenda, criarEventoGoogle, listarAgendasGoogle, listarEventosGoogle, ErroGoogleAgenda, PermissaoGoogleAgenda, type AgendaGoogle,
+  autorizarGoogleAgenda, criarEventoGoogle, excluirEventoGoogle, listarAgendasGoogle, listarEventosGoogle, ErroGoogleAgenda, PermissaoGoogleAgenda, type AgendaGoogle,
 } from '../services/googleAgenda';
 import type { Visita } from '../database/database';
 
@@ -85,18 +85,42 @@ export function useGoogleAgenda(mes: string) {
     setErro('');
   }
 
-  async function publicar(visita: Visita, destino: string) {
+  async function publicar(visita: Visita, destino: string, nomeMedico: string) {
     if (!token || !opcoes) throw new Error('Conecte o Google Agenda antes de reenviar.');
     const papelDestino = opcoes.find(item => item.id === destino)?.accessRole;
     if (papelDestino !== 'owner' && papelDestino !== 'writer') {
       throw new Error('A agenda de destino precisa permitir a criação de eventos.');
     }
     try {
-      await criarEventoGoogle(token, destino, visita);
+      await criarEventoGoogle(token, destino, visita, nomeMedico);
       setErro('');
       setTentativa(valor => valor + 1);
     } catch (falha) {
-      if (falha instanceof PermissaoGoogleAgenda) setErro(falha.message);
+      if (falha instanceof PermissaoGoogleAgenda) {
+        setToken(undefined);
+        setErro(falha.message);
+      }
+      throw falha;
+    }
+  }
+
+  async function excluir(visitaId: string, destinos: string[]) {
+    if (!token) throw new ErroGoogleAgenda('Conecte o Google Agenda para concluir a exclusão.');
+    try {
+      let localizado = false;
+      for (const destino of destinos) {
+        if (await excluirEventoGoogle(token, destino, visitaId)) localizado = true;
+      }
+      if (!localizado) {
+        throw new ErroGoogleAgenda('O evento não foi localizado nas agendas com permissão de edição desta conta Google.');
+      }
+      setErro('');
+      setTentativa(valor => valor + 1);
+    } catch (falha) {
+      if (falha instanceof PermissaoGoogleAgenda) {
+        setToken(undefined);
+        setErro(falha.message);
+      }
       throw falha;
     }
   }
@@ -104,8 +128,8 @@ export function useGoogleAgenda(mes: string) {
   const dias = eventos?.token === token && eventos?.agenda === agenda && eventos?.mes === mes
     ? eventos.dias : undefined;
   return {
-    opcoes, agenda, dias, erro, autorizando, conectar, selecionar, publicar, podeCriar,
-    destino: opcoes ? (podeCriar ? agenda : '') : agendaPreferida ?? '',
+    opcoes, agenda, dias, erro, autorizando, conectar, selecionar, publicar, excluir, podeCriar,
+    destino: podeCriar ? agenda : '',
     carregando: Boolean(token && !erro && (!opcoes || (agenda && !dias))),
     tentarNovamente: token ? () => { setErro(''); setTentativa(valor => valor + 1); } : undefined,
   };

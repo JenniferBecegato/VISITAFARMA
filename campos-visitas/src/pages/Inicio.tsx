@@ -141,9 +141,9 @@ export default function Inicio({ lembretes, nomeUsuario, unidade, editarVisita, 
                 <div className="inicio-acoes-visita">
                   {visita.status !== 'cancelada' && visita.status !== 'realizada' &&
                     <div className="inicio-acoes-linha">
-                      <button type="button" disabled={!!atualizando} className="realizar" onClick={() => void mudarSituacao(visita, 'realizada')}>Realizar</button>
-                      <button type="button" disabled={!!atualizando} className="cancelar" onClick={() => void mudarSituacao(visita, 'cancelada')}>Cancelar</button>
-                      <button type="button" disabled={!!atualizando} onClick={() => editarVisita(visita)}>Reagendar visita</button>
+                      <button type="button" disabled={!!atualizando} className="realizar" onClick={() => void mudarSituacao(visita, 'realizada')}>Visita Realizada</button>
+                      <button type="button" disabled={!!atualizando} className="cancelar" onClick={() => void mudarSituacao(visita, 'cancelada')}>Visita Cancelada</button>
+                      <button type="button" disabled={!!atualizando} onClick={() => editarVisita(visita)}>Visita remarcada</button>
                     </div>}
                   <div className="inicio-acoes-linha">
                     {visita.status !== 'cancelada' && <button type="button" disabled={!!atualizando} onClick={() => editarVisita(visita)}>Editar</button>}

@@ -1,8 +1,10 @@
+import CamposSecretarias from '../components/CamposSecretarias';
+import type { ContatoSecretaria } from '../database/catalogos';
 import { useConta } from '../services/conta';
-import { normalizarTexto } from '../utils/texto';
+import { correspondeBuscaMedico, normalizarNomeMedico, normalizarTexto } from '../utils/texto';
 import { rotuloStatusVisita } from '../utils/statusVisita';
 
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useEffectEvent, useRef, useState, type FormEvent } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 
 import {
@@ -14,7 +16,7 @@ import './Agenda.css';
 import CalendarioVisitas from '../components/CalendarioVisitas';
 import { useGoogleAgenda } from '../components/useGoogleAgenda';
 import { ErroGoogleAgenda } from '../services/googleAgenda';
-import { alterarSituacaoVisita, salvarAgendamento } from '../database/visitas';
+import { alterarSituacaoVisita, excluirVisita, salvarAgendamento } from '../database/visitas';
 
 
 function obterDataLocal() {
@@ -65,6 +67,18 @@ export default function Agenda({ visitaInicial, abrirPasta, abrirRelatorio }: {
   const [avisoGoogle, setAvisoGoogle] = useState<{ mensagem: string; erro: boolean }>();
   const [publicando, setPublicando] = useState(false);
   const travaGoogle = useRef(false);
+  const tentativasGoogle = useRef(new Set<string>());
+  const exclusoesTentadas = useRef(new Set<string>());
+  const [reconexoes, setReconexoes] = useState(0);
+
+  useEffect(() => {
+    function reconectar() {
+      exclusoesTentadas.current.clear();
+      setReconexoes(valor => valor + 1);
+    }
+    window.addEventListener('online', reconectar);
+    return () => window.removeEventListener('online', reconectar);
+  }, []);
 
   function chaveEnvio(visitaId: string) {
     return `campos-google-agenda-envio:${usuarioId}:${visitaId}`;
@@ -76,7 +90,12 @@ export default function Agenda({ visitaInicial, abrirPasta, abrirRelatorio }: {
     setPublicando(true);
     try {
       localStorage.setItem(chaveEnvio(visita.id), destino);
-      await google.publicar(visita, destino);
+      const medico = await db.medicos.get(visita.medicoId);
+      if (!medico?.nome.trim() || medico.usuarioId !== usuarioId) {
+        throw new ErroGoogleAgenda('Não foi possível localizar o nome do médico vinculado.');
+      }
+      localStorage.setItem(chaveEnvio(visita.id) + ':destino', destino);
+      await google.publicar(visita, destino, medico.nome.trim());
       localStorage.removeItem(chaveEnvio(visita.id));
       setAvisoGoogle({ mensagem: 'Visita incluída no Google Agenda.', erro: false });
     } catch (falha) {
@@ -87,6 +106,28 @@ export default function Agenda({ visitaInicial, abrirPasta, abrirRelatorio }: {
       setPublicando(false);
     }
   }
+  async function removerVisita(visita: Visita) {
+    if (travaSituacao.current || travaSalvar.current || travaGoogle.current) return;
+    if (!window.confirm('Excluir esta visita do VisitaFarma e do Google Agenda? Ela também sairá dos relatórios de visitas.')) return;
+    travaSituacao.current = true;
+    setAtualizandoId(visita.id);
+    setErroSituacao('');
+    try {
+      const chave = chaveEnvio(visita.id);
+      const destino = localStorage.getItem(chave + ':destino') || localStorage.getItem(chave) || '';
+      localStorage.setItem(chave + ':excluir', destino);
+      await excluirVisita(usuarioId, visita.id);
+      localStorage.removeItem(chave);
+      setAvisoGoogle({ mensagem: 'Visita excluída do VisitaFarma. A exclusão no Google Agenda está pendente.', erro: false });
+      if (editandoId === visita.id) limparFormulario();
+    } catch (erro) {
+      setErroSituacao(erro instanceof Error ? erro.message : 'Não foi possível excluir a visita.');
+    } finally {
+      travaSituacao.current = false;
+      setAtualizandoId(undefined);
+    }
+  }
+
   const [mostrarFormulario, setMostrarFormulario] =
     useState(Boolean(visitaInicial));
 
@@ -94,6 +135,10 @@ export default function Agenda({ visitaInicial, abrirPasta, abrirRelatorio }: {
     useState<string | null>(visitaInicial?.id ?? null);
 
   const [medicoId, setMedicoId] = useState(visitaInicial?.medicoId ?? '');
+  const [textoMedico, setTextoMedico] = useState('');
+  const [mostrarSugestoes, setMostrarSugestoes] = useState(false);
+  const [secretariasEditadas, setSecretariasEditadas] = useState<ContatoSecretaria[]>();
+  const [maisDeUmaEditada, setMaisDeUmaEditada] = useState<boolean>();
   const [data, setData] = useState(visitaInicial?.data ?? obterDataLocal());
   const [horaInicio, setHoraInicio] = useState(visitaInicial?.horaInicio ?? '');
   const [horaFim, setHoraFim] = useState(visitaInicial?.horaFim ?? '');
@@ -112,7 +157,7 @@ export default function Agenda({ visitaInicial, abrirPasta, abrirRelatorio }: {
   }
   const [secretariaId, setSecretariaId] = useState(visitaInicial?.secretariaId ?? '');
   const secretarias = useLiveQuery(() => db.secretarias.where('usuarioId').equals(usuarioId)
-    .filter(s => !s.excluidoEm && (s.medicoIds ?? [s.medicoId]).includes(medicoId)).sortBy('nome'), [medicoId]);
+    .filter(s => !s.excluidoEm).sortBy('nome'), [usuarioId]);
   const [observacoes, setObservacoes] = useState(visitaInicial?.observacoes ?? '');
   const [erro, setErro] = useState('');
   const [salvando, setSalvando] = useState(false);
@@ -134,9 +179,84 @@ export default function Agenda({ visitaInicial, abrirPasta, abrirRelatorio }: {
     []
   );
 
+  const excluirPendente = useEffectEvent(async (visita: Visita, destinos: string[]) => {
+    if (travaSalvar.current || travaGoogle.current || travaSituacao.current) return;
+    exclusoesTentadas.current.add(visita.id);
+    travaGoogle.current = true;
+    setPublicando(true);
+    const chave = chaveEnvio(visita.id);
+    try {
+      await google.excluir(visita.id, destinos);
+      localStorage.removeItem(chave + ':excluir');
+      localStorage.removeItem(chave + ':destino');
+      setAvisoGoogle({ mensagem: 'Exclusão da visita concluída no Google Agenda.', erro: false });
+    } catch (falha) {
+      const detalhe = falha instanceof ErroGoogleAgenda ? falha.message : 'Verifique a conexão.';
+      setAvisoGoogle({ mensagem: `A exclusão no Google Agenda ficou pendente. ${detalhe}`, erro: true });
+    } finally {
+      travaGoogle.current = false;
+      setPublicando(false);
+    }
+  });
+
+  const enviarPendente = useEffectEvent((visita: Visita, destino: string) => {
+    if (travaSalvar.current || travaGoogle.current || travaSituacao.current || tentativasGoogle.current.has(visita.id)) return;
+    tentativasGoogle.current.add(visita.id);
+    void enviarAoGoogle(visita, destino);
+  });
+
+  useEffect(() => {
+    if (!google.opcoes) {
+      exclusoesTentadas.current.clear();
+      return;
+    }
+    if (salvando || publicando || atualizandoId) return;
+    const agendasEditaveis = google.opcoes.filter(a => a.accessRole === 'owner' || a.accessRole === 'writer');
+    for (const visita of visitas ?? []) {
+      if (!visita.excluidoEm || exclusoesTentadas.current.has(visita.id)) continue;
+      const destino = localStorage.getItem(`campos-google-agenda-envio:${usuarioId}:${visita.id}:excluir`);
+      if (destino === null) continue;
+      const destinos = [...new Set([destino, ...agendasEditaveis.map(a => a.id)].filter(Boolean))];
+      if (destinos.length) {
+        const timer = window.setTimeout(() => { void excluirPendente(visita, destinos); }, 0);
+        return () => window.clearTimeout(timer);
+      }
+    }
+    for (const visita of visitas ?? []) {
+      if (visita.excluidoEm || visita.status === 'cancelada' || tentativasGoogle.current.has(visita.id)) continue;
+      const pendente = localStorage.getItem(`campos-google-agenda-envio:${usuarioId}:${visita.id}`);
+      const destino = pendente || google.destino;
+      if (pendente === null || !google.opcoes.some(a =>
+        a.id === destino && (a.accessRole === 'owner' || a.accessRole === 'writer'))) continue;
+      enviarPendente(visita, destino);
+      break;
+    }
+  }, [google.opcoes, google.destino, publicando, salvando, atualizandoId, reconexoes, usuarioId, visitas]);
+
   const medicosAtivos = (medicos ?? [])
     .filter(m => !m.excluidoEm)
     .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+
+  const termoMedico = normalizarNomeMedico(textoMedico);
+  const nomesIguais = termoMedico ? medicosAtivos.filter(m => normalizarNomeMedico(m.nome) === termoMedico) : [];
+  const medicoSelecionado = medicoId ? medicosAtivos.find(m => m.id === medicoId) :
+    nomesIguais.length === 1 ? nomesIguais[0] : undefined;
+  const sugestoesMedicos = termoMedico ? medicosAtivos
+    .filter(m => correspondeBuscaMedico(m.nome, textoMedico)).slice(0, 8) : [];
+  const ordemSecretarias = medicoSelecionado?.secretariaIds ??
+    (medicoSelecionado?.secretariaId ? [medicoSelecionado.secretariaId] : []);
+  const secretariasVinculadas = (secretarias ?? []).filter(s =>
+    (s.medicoIds ?? [s.medicoId]).includes(medicoSelecionado?.id ?? medicoId));
+  const posicao = (id: string) => ordemSecretarias.includes(id) ? ordemSecretarias.indexOf(id) : Number.MAX_SAFE_INTEGER;
+  const contatos = secretariasVinculadas.sort((a, b) => posicao(a.id) - posicao(b.id))
+    .map(({ id, nome }) => ({ id, nome }));
+  const camposSecretarias = secretariasEditadas ?? (contatos.length ? contatos : [{ nome: '' }]);
+  const maisDeUmaSecretaria = maisDeUmaEditada ?? contatos.length > 1;
+
+  function limparSecretarias() {
+    setSecretariasEditadas(undefined);
+    setMaisDeUmaEditada(undefined);
+  }
 
   const visitasOrdenadas = (visitas ?? [])
     .filter(v => !v.excluidoEm && v.data === diaSelecionado)
@@ -153,6 +273,9 @@ export default function Agenda({ visitaInicial, abrirPasta, abrirRelatorio }: {
 
   function limparFormulario() {
     setMedicoId('');
+    setTextoMedico('');
+    setMostrarSugestoes(false);
+    limparSecretarias();
     setData(obterDataLocal());
     setHoraInicio('');
     setHoraFim('');
@@ -190,13 +313,27 @@ export default function Agenda({ visitaInicial, abrirPasta, abrirRelatorio }: {
     if (travaSalvar.current || travaGoogle.current) return;
     travaSalvar.current = true; setSalvando(true); setErro('');
     try {
-      const visita = await salvarAgendamento(usuarioId, { medicoId, data, horaInicio, horaFim, local, secretariaId, observacoes, produtosAssuntos },
-        editandoId ?? undefined, atualizadoEmEdicao);
+      const camposVisiveis = maisDeUmaSecretaria ? camposSecretarias : camposSecretarias.slice(0, 1);
+      const contatosPreenchidos = camposVisiveis.filter(c => c.nome.trim());
+      if (!editandoId && maisDeUmaSecretaria &&
+        (camposVisiveis.length < 2 || camposVisiveis.length !== contatosPreenchidos.length)) {
+        throw new Error('Preencha os nomes das secretárias nos campos exibidos.');
+      }
+      const alterouSecretarias = secretariasEditadas !== undefined || maisDeUmaEditada !== undefined;
+      const visita = await salvarAgendamento(usuarioId, {
+        medicoId: editandoId ? medicoId : medicoSelecionado?.id ?? medicoId,
+        data, horaInicio, horaFim, local, secretariaId, observacoes, produtosAssuntos
+      }, editandoId ?? undefined, atualizadoEmEdicao, editandoId ? undefined : {
+        nomeMedico: textoMedico,
+        secretarias: alterouSecretarias ? contatosPreenchidos : undefined
+      });
       setDiaSelecionado(data); limparFormulario();
       setAvisoGoogle(undefined);
-      if (!editandoId && google.destino) await enviarAoGoogle(visita, google.destino);
-      else if (!editandoId && google.agenda) {
-        setAvisoGoogle({ mensagem: 'Visita salva no VisitaFarma. A agenda Google selecionada permite apenas leitura.', erro: false });
+      if (!editandoId) {
+        localStorage.setItem(chaveEnvio(visita.id), google.destino);
+        if (!google.destino) {
+          setAvisoGoogle({ mensagem: 'Visita salva no VisitaFarma. O envio aguarda uma agenda Google com permissão de escrita.', erro: false });
+        }
       }
     } catch (error) {
       setErro(error instanceof Error ? error.message : 'Não foi possível salvar a visita.');
@@ -231,6 +368,7 @@ export default function Agenda({ visitaInicial, abrirPasta, abrirRelatorio }: {
 
           <form onSubmit={salvarVisita}><fieldset disabled={salvando || publicando} className="cadastro-campos">
             <div className="medicos-grid">
+              {editandoId ? (
               <label>
                 Médico *
                 <select
@@ -251,6 +389,35 @@ export default function Agenda({ visitaInicial, abrirPasta, abrirRelatorio }: {
                   ))}
                 </select>
               </label>
+              ) : (
+                <div onBlur={e => {
+                  if (!e.currentTarget.contains(e.relatedTarget)) setMostrarSugestoes(false);
+                }} onKeyDown={e => {
+                  if (e.key === 'Escape') setMostrarSugestoes(false);
+                }}>
+                  <label>Médico *
+                    <input required autoComplete="off" placeholder="Digite o nome completo" value={textoMedico}
+                      onFocus={() => setMostrarSugestoes(!medicoId)}
+                      onChange={e => {
+                        setTextoMedico(e.target.value);
+                        if (medicoId) setLocal('');
+                        setMedicoId('');
+                        limparSecretarias();
+                        setMostrarSugestoes(true);
+                      }} />
+                  </label>
+                  {mostrarSugestoes && sugestoesMedicos.length > 0 &&
+                    <div className="agenda-produtos-sugestoes" aria-label="Sugestões de médicos">
+                      {sugestoesMedicos.map(m => <button type="button" key={m.id} onClick={() => {
+                        setMedicoId(m.id);
+                        setTextoMedico(m.nome);
+                        setLocal(m.clinica ?? '');
+                        limparSecretarias();
+                        setMostrarSugestoes(false);
+                      }}>{[m.nome, m.especialidade, m.crm && `CRM ${m.crm}`].filter(Boolean).join(' — ')}</button>)}
+                    </div>}
+                </div>
+              )}
 
               <label>
                 Data *
@@ -302,12 +469,16 @@ export default function Agenda({ visitaInicial, abrirPasta, abrirRelatorio }: {
               </div>
             </div>
 
-            <label>Secretária
+            {editandoId ? <label>Secretária
               <select value={secretariaId} onChange={e => setSecretariaId(e.target.value)}>
                 <option value="">Sem secretária selecionada</option>
-                {secretarias?.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
+                {secretariasVinculadas.map(s => <option key={s.id} value={s.id}>{s.nome}</option>)}
               </select>
-            </label>
+            </label> : <><CamposSecretarias maisDeUmaSecretaria={maisDeUmaSecretaria} camposSecretarias={camposSecretarias}
+              setMaisDeUmaSecretaria={setMaisDeUmaEditada} setCamposSecretarias={setSecretariasEditadas} />
+              {medicoSelecionado && (secretariasEditadas !== undefined || maisDeUmaEditada !== undefined) &&
+                <p>Ao salvar, as alterações nas secretárias serão aplicadas ao cadastro do médico.</p>}
+            </>}
             <label className="agenda-observacoes">
               Observações
               <textarea
@@ -330,7 +501,7 @@ export default function Agenda({ visitaInicial, abrirPasta, abrirRelatorio }: {
               <button
                 type="submit"
                 className="medicos-botao-principal"
-                disabled={salvando}
+                disabled={salvando || (!editandoId && (!medicos || !secretarias))}
               >
                 {salvando
                   ? 'Salvando...'
@@ -361,11 +532,19 @@ export default function Agenda({ visitaInicial, abrirPasta, abrirRelatorio }: {
         ) : (
           <div className="agenda-lista">
             {visitasOrdenadas.map(visita => {
-              const destino = localStorage.getItem(chaveEnvio(visita.id));
               return (
               <article className="agenda-item" key={visita.id}>
                 <div className="agenda-item-horario">
                   {visita.horaInicio}
+                  <button type="button" className="agenda-botao-excluir"
+                    aria-label={`Excluir visita de ${nomeMedico(visita.medicoId)} às ${visita.horaInicio}`}
+                    title="Excluir visita" disabled={!!atualizandoId || salvando || publicando}
+                    onClick={() => void removerVisita(visita)}>
+                    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 6h18M9 6V3h6v3M5 6l1 14h12l1-14M10 10v6m4-6v6" />
+                    </svg>
+                  </button>
                 </div>
 
                 <div className="agenda-item-info">
@@ -385,18 +564,16 @@ export default function Agenda({ visitaInicial, abrirPasta, abrirRelatorio }: {
                 <div className="agenda-item-acoes" aria-busy={atualizandoId === visita.id}>
                   {visita.status !== 'realizada' && visita.status !== 'cancelada' && <div className="agenda-acoes-linha">
                     <button type="button" disabled={!!atualizandoId} className="agenda-botao-realizar"
-                      onClick={() => void mudarSituacao(visita, 'realizada')}>Realizado</button>
+                      onClick={() => void mudarSituacao(visita, 'realizada')}>Visita Realizada</button>
                     <button type="button" disabled={!!atualizandoId} className="agenda-botao-cancelar"
-                      onClick={() => void mudarSituacao(visita, 'cancelada')}>Cancelar</button>
-                    <button type="button" disabled={!!atualizandoId} onClick={() => editarVisita(visita)}>Remarcar visita</button>
+                      onClick={() => void mudarSituacao(visita, 'cancelada')}>Visita Cancelada</button>
+                    <button type="button" disabled={!!atualizandoId} onClick={() => editarVisita(visita)}>Visita remarcada</button>
                   </div>}
                   <div className="agenda-acoes-linha">
                     {visita.status !== 'realizada' && visita.status !== 'cancelada' &&
                       <button type="button" disabled={!!atualizandoId} onClick={() => editarVisita(visita)}>Editar</button>}
                     <button type="button" disabled={!!atualizandoId} className="agenda-botao-formulario"
                       onClick={() => abrirRelatorio(visita)}>Formulário</button>
-                    {destino && visita.status !== 'cancelada' && <button type="button" disabled={publicando || salvando}
-                      onClick={() => { if (!travaSalvar.current) void enviarAoGoogle(visita, destino); }}>Reenviar ao Google Agenda</button>}
                   </div>
                 </div>
                 
