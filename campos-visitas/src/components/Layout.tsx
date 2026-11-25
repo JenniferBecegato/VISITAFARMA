@@ -1,4 +1,3 @@
-import farmaceuticaAvatar from '../assets/farmaceutica-avatar.png';
 
 import iconeHistorico from '../assets/menu/historico.svg';
 import iconeInicio from '../assets/menu/inicio.svg';
@@ -110,7 +109,7 @@ export default function Layout({
       </header>
 
       <aside className={`app-menu-lateral ${menuAberto ? 'aberto' : ''}`}>
-        <div className="app-identificacao"><button className="app-identificacao-nome" type="button" title="Voltar à página de login" onClick={() => void alterarIdentificacao()}><img className="app-identificacao-avatar" src={farmaceuticaAvatar} alt="" /><span>{identificacao.nome}</span></button></div>
+        <div className="app-identificacao"><button className="app-identificacao-nome" type="button" title="Voltar à página de login" onClick={() => void alterarIdentificacao()}><span>{identificacao.nome}</span></button></div>
         <nav aria-label="Menu principal">
           {itensMenu.map(item => (
             <button
@@ -130,7 +129,7 @@ export default function Layout({
       <main className="app-conteudo">
         <div className="app-identificacao-mobile">
           
-          <button className="app-identificacao-nome" type="button" title="Voltar à página de login" onClick={() => void alterarIdentificacao()}><img className="app-identificacao-avatar" src={farmaceuticaAvatar} alt="" /><span>{identificacao.nome}</span></button>
+          <button className="app-identificacao-nome" type="button" title="Voltar à página de login" onClick={() => void alterarIdentificacao()}><span>{identificacao.nome}</span></button>
         </div>
 
         {children}

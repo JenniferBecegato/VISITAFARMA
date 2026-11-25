@@ -1,3 +1,4 @@
+import './components/SaidaSessao.css';
 import Historico from './pages/Historico';
 import { atualizarVisitasRemarcadas } from './database/visitas';
 import { dataLocal } from './utils/relatorios';
@@ -273,7 +274,15 @@ export default function App() {
     window.addEventListener('storage', outraAba);
     return () => { assinatura?.data.subscription.unsubscribe(); window.removeEventListener('storage', outraAba); };
   }, []);
-  if (encerrando) return <p role="status">Encerrando sessão…</p>;
+  if (encerrando) return (
+    <main className="saida-sessao">
+      <div className="saida-sessao-conteudo">
+        <span className="saida-sessao-marca" role="img" aria-label="Farmácia Campos" />
+        <span className="saida-sessao-carregamento" aria-hidden="true" />
+        <p role="status">Encerrando sessão…</p>
+      </div>
+    </main>
+  );
   if (!conta) return <Login entrar={setConta} />;
   return <ContextoConta.Provider value={conta}><AplicativoConta key={conta.usuarioId} identificacao={conta} sair={sair} /></ContextoConta.Provider>;
 }

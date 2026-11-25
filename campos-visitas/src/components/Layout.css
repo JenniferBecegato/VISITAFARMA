@@ -320,11 +320,7 @@
   text-align: left;
   cursor: pointer;
 }
-.app-identificacao-nome .app-identificacao-avatar { font-size: 24px; flex-shrink: 0; }
 .app-identificacao-nome span { color: inherit; font-size: inherit; overflow-wrap: anywhere; }
 .app-identificacao-nome:hover { text-decoration: underline; text-underline-offset: 3px; }
 .app-identificacao-nome:focus-visible { outline: 3px solid #b49a60; outline-offset: 3px; }
 .app-menu-lateral .app-identificacao .app-identificacao-nome, .app-identificacao-mobile .app-identificacao-nome { font-size: 18px; }
-.app-identificacao-nome .app-identificacao-avatar { font-size: 28px; }
-
-.app-identificacao-nome img.app-identificacao-avatar { display: block; width: 44px; height: 44px; object-fit: contain; flex-shrink: 0; }
