@@ -10,12 +10,15 @@ import { UNIDADES } from '../services/identificacao';
 import './Login.css';
 import logoCampos from '../assets/logo-campos.png';
 
-export default function Login({ entrar }: { entrar: (conta: Conta) => void }) {
+export default function Login({ entrar, avisoInicial = '' }: { entrar: (conta: Conta) => void; avisoInicial?: string }) {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [erro, setErro] = useState('');
-  const [aviso, setAviso] = useState('');
+  const [aviso, setAviso] = useState(avisoInicial);
+  const [emailRecuperacao, setEmailRecuperacao] = useState('');
+  const [mensagemRecuperacao, setMensagemRecuperacao] = useState('');
+  const recuperacao = useRef<HTMLDialogElement>(null);
   const [enviando, setEnviando] = useState(false);
   const [completar, setCompletar] = useState(false);
   const [nome, setNome] = useState('');
@@ -79,6 +82,29 @@ export default function Login({ entrar }: { entrar: (conta: Conta) => void }) {
       else setErro(e instanceof Error ? e.message : 'Falha de conexão. Tente novamente.');
     } finally { setEnviando(false); }
   }
+  async function pedirRecuperacao(evento: FormEvent) {
+    evento.preventDefault();
+    if (enviando || !supabase) return;
+    setEnviando(true); setMensagemRecuperacao('');
+    try {
+      const redirectTo = androidNativo ? RETORNO_ANDROID : window.location.origin + window.location.pathname;
+      const { error } = await supabase.auth.resetPasswordForEmail(emailRecuperacao.trim(), { redirectTo });
+      if (error && error.code !== 'user_not_found') {
+        setMensagemRecuperacao(error.status === 429
+          ? 'Aguarde um pouco antes de pedir outro link.'
+          : 'Não foi possível solicitar o link. Confira a conexão e tente novamente.');
+        return;
+      }
+      setAviso('Se houver uma conta para esse e-mail, você receberá um link para definir sua senha. Confira também o spam.');
+      setErro('');
+      recuperacao.current?.close();
+    } catch {
+      setMensagemRecuperacao('Não foi possível solicitar o link. Confira a conexão e tente novamente.');
+    } finally {
+      setEnviando(false);
+    }
+  }
+
   async function cadastrar(evento: FormEvent) {
     evento.preventDefault();
     if (enviando || !supabase) return;
@@ -157,6 +183,9 @@ export default function Login({ entrar }: { entrar: (conta: Conta) => void }) {
           </svg>
         </button>
       </span></label>
+      <button type="button" className="login-link login-esqueci" disabled={!configurado} onClick={() => {
+        setEmailRecuperacao(email); setMensagemRecuperacao(''); recuperacao.current?.showModal();
+      }}>Esqueci minha senha</button>
       {erro && <p role="alert">{erro}</p>}
       {aviso && <p role="status">{aviso}</p>}
       {!configurado && <p role="alert">A conexão com o Supabase ainda não está configurada.</p>}
@@ -166,6 +195,16 @@ export default function Login({ entrar }: { entrar: (conta: Conta) => void }) {
     <p className="login-primeiro">Primeiro acesso? <button type="button" className="login-link" onClick={abrirCadastro} disabled={enviando || !configurado}>Novo cadastro</button></p>
     <button type="button" className="login-google" onClick={() => void google()} disabled={enviando || !configurado}>Continuar com Google</button>
     <p className="login-nota">Após o primeiro acesso, este aparelho pode trabalhar sem internet.</p>
+    <dialog ref={recuperacao} className="login-modal" aria-labelledby="recuperacao-titulo" onCancel={e => { if (enviando) e.preventDefault(); }}>
+      <h2 id="recuperacao-titulo">Recuperar senha</h2>
+      <p>Informe o e-mail da sua conta para receber o link.</p>
+      <form onSubmit={pedirRecuperacao}><fieldset disabled={enviando}>
+        <label>E-mail<input autoFocus type="email" autoComplete="email" required value={emailRecuperacao} onChange={e => setEmailRecuperacao(e.target.value)} /></label>
+        {mensagemRecuperacao && <p role="alert">{mensagemRecuperacao}</p>}
+        <button type="submit">{enviando ? 'Solicitando…' : 'Enviar link'}</button>
+      </fieldset></form>
+      <button type="button" className="login-link" disabled={enviando} onClick={() => recuperacao.current?.close()}>Fechar</button>
+    </dialog>
     <dialog ref={modal} className="login-modal" aria-labelledby="cadastro-titulo" onCancel={e => { if (enviando) e.preventDefault(); }}>
       <h2 id="cadastro-titulo">{completar ? 'Complete seu cadastro' : 'Criar conta'}</h2>
       <p>{completar ? 'Informe seu nome e unidade para começar.' : 'Cadastre-se com seu e-mail ou sua conta Google.'}</p>

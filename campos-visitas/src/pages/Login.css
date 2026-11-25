@@ -84,3 +84,10 @@
 .login-card .login-senha-olho { position: absolute; top: 2px; right: 2px; display: grid; place-items: center; width: 44px; height: calc(100% - 4px); min-height: 0; margin: 0; padding: 0; background: transparent; color: #182f60; border-radius: 7px; }
 .login-card .login-senha-olho:hover { background: #edf2f8; }
 .login-senha-campo input::-ms-reveal { display: none; }
+.login-card .login-esqueci { display: block; margin: 6px 0 0 auto; }
+.login-redefinir fieldset { border: 0; padding: 0; margin: 0; }
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .login-card.login-redefinir { display: block; width: min(100%, 470px); }
+  .login-redefinir .login-marca { margin: 0 0 12px; }
+}

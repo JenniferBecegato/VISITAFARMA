@@ -9,6 +9,7 @@ import Layout, { type Pagina } from './components/Layout';
 
 import Inicio from './pages/Inicio';
 import Login from './pages/Login';
+import RedefinirSenha from './pages/RedefinirSenha';
 import { ContextoConta, lerConta, limparConta, type Conta } from './services/conta';
 import { androidNativo, CHAVE_AUTH, supabase } from './services/supabase';
 import { escutarRetornoAndroid } from './services/loginAndroid';
@@ -247,7 +248,14 @@ function AplicativoConta({ identificacao, sair }: { identificacao: Conta; sair: 
   );
 }
 
+const CHAVE_RECUPERACAO = 'campos-recuperacao-senha';
+const retornoWebRecuperacao = !androidNativo &&
+  new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery';
+
 export default function App() {
+  const [usuarioRecuperacao, setUsuarioRecuperacao] = useState(() => sessionStorage.getItem(CHAVE_RECUPERACAO));
+  const [aguardandoRecuperacao, setAguardandoRecuperacao] = useState(retornoWebRecuperacao && Boolean(supabase));
+  const [avisoLogin, setAvisoLogin] = useState('');
   const [conta, setConta] = useState<Conta | null>(lerConta);
   const [encerrando, setEncerrando] = useState(false);
   const saindo = useRef(false);
@@ -262,18 +270,44 @@ export default function App() {
   }, []);
   useEffect(() => {
     const assinatura = supabase?.auth.onAuthStateChange((evento, sessao) => {
+      if (evento === 'PASSWORD_RECOVERY' && sessao) {
+        sessionStorage.setItem(CHAVE_RECUPERACAO, sessao.user.id);
+        setUsuarioRecuperacao(sessao.user.id);
+        setAguardandoRecuperacao(false);
+        return;
+      }
       const contaLocal = lerConta();
       const mudouConta = sessao && contaLocal && sessao.user.id !== contaLocal.usuarioId;
       if (evento === 'SIGNED_OUT' || mudouConta) {
         limparConta(); setConta(null); void desativarNotificacoes().catch(() => undefined);
       }
     });
+    let ativo = true;
+    if (retornoWebRecuperacao) {
+      void supabase?.auth.initialize().then(({ error }) => {
+        if (!ativo || !error) return;
+        setAvisoLogin('O link de recuperação é inválido ou expirou. Solicite um novo.');
+        setAguardandoRecuperacao(false);
+      });
+    }
     const outraAba = (evento: StorageEvent) => {
       if (evento.key === 'campos-conta-offline') setConta(lerConta());
     };
     window.addEventListener('storage', outraAba);
-    return () => { assinatura?.data.subscription.unsubscribe(); window.removeEventListener('storage', outraAba); };
+    return () => { ativo = false; assinatura?.data.subscription.unsubscribe(); window.removeEventListener('storage', outraAba); };
   }, []);
+  if (aguardandoRecuperacao) return <p role="status">Verificando link de recuperação…</p>;
+  if (usuarioRecuperacao && supabase) return <RedefinirSenha
+    cliente={supabase}
+    usuarioId={usuarioRecuperacao}
+    terminar={aviso => {
+      limparConta();
+      setConta(null);
+      sessionStorage.removeItem(CHAVE_RECUPERACAO);
+      setUsuarioRecuperacao(null);
+      setAvisoLogin(aviso);
+    }}
+  />;
   if (encerrando) return (
     <main className="saida-sessao">
       <div className="saida-sessao-conteudo">
@@ -283,6 +317,6 @@ export default function App() {
       </div>
     </main>
   );
-  if (!conta) return <Login entrar={setConta} />;
+  if (!conta) return <Login entrar={setConta} avisoInicial={avisoLogin} />;
   return <ContextoConta.Provider value={conta}><AplicativoConta key={conta.usuarioId} identificacao={conta} sair={sair} /></ContextoConta.Provider>;
 }
